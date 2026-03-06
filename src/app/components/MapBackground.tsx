@@ -102,6 +102,13 @@ export default function MapBackground({
             attributionControl: false,
         });
 
+        // Custom pane that sits above the tile layer (200) and overlay pane (400)
+        // Using inline style so it works even if Leaflet's CSS fails to load
+        mapRef.current.createPane('routePane');
+        const routePaneEl = mapRef.current.getPane('routePane')!;
+        routePaneEl.style.zIndex = '450';
+        routePaneEl.style.pointerEvents = 'none';
+
         tileRef.current = L.tileLayer(
             theme === 'dark' ? TILES.dark : TILES.light,
             { subdomains: 'abcd', maxZoom: 19 }
@@ -169,8 +176,9 @@ export default function MapBackground({
                 L.polyline(allPositions, {
                     color: '#3b82f6',
                     weight: 3,
-                    opacity: 0.75,
+                    opacity: 0.85,
                     dashArray: '8 6',
+                    pane: 'routePane',
                 }).addTo(map)
             );
         }
@@ -184,9 +192,10 @@ export default function MapBackground({
             layersRef.current.push(
                 L.polyline([originCoords, destinationCoords], {
                     color: '#94a3b8',
-                    weight: 1.5,
-                    opacity: 0.6,
+                    weight: 2,
+                    opacity: 0.75,
                     dashArray: '4 9',
+                    pane: 'routePane',
                 }).addTo(map)
             );
 
@@ -219,8 +228,9 @@ export default function MapBackground({
             routeLayersRef.current.push(
                 L.polyline(path as L.LatLngExpression[], {
                     color: '#38bdf8',
-                    weight: 2.5,
-                    opacity: 0.72,
+                    weight: 3,
+                    opacity: 0.9,
+                    pane: 'routePane',
                 }).addTo(map)
             );
         });
@@ -231,9 +241,10 @@ export default function MapBackground({
             routeLayersRef.current.push(
                 L.polyline(path as L.LatLngExpression[], {
                     color: '#fb923c',
-                    weight: 3,
-                    opacity: 0.75,
+                    weight: 4,
+                    opacity: 0.9,
                     dashArray: '10 4',
+                    pane: 'routePane',
                 }).addTo(map)
             );
         });

@@ -7,6 +7,7 @@
 
 const mongoose = require('mongoose');
 const Train = require('../models/Train');
+const { getStationCoords } = require('../data/stationCoordinates');
 
 // City name mappings for search
 const CITY_NAME_MAPPINGS = {
@@ -196,10 +197,21 @@ async function searchTrainsMongoDB(params) {
                 availableClasses = ['1A', '2A', '3A', 'CC'];
             }
 
+            // Build real route path from the train's intermediate stops
+            const subRoute = train.trainRoute.slice(fromIdx, toIdx + 1);
+            const routePath = [];
+            for (const stop of subRoute) {
+                const parts = (stop.stationName || '').split(' - ');
+                const code = parts.length > 1 ? parts[parts.length - 1].trim() : '';
+                const coords = getStationCoords(code);
+                if (coords) routePath.push(coords);
+            }
+
             matchingTrains.push({
                 trainNumber: train.trainNumber,
                 trainName: train.trainName,
                 trainType: train.trainType,
+                routePath: routePath.length >= 2 ? routePath : null,
                 from: {
                     code: fromStation.stationCode || fromStation.stationName.split(' - ')[1] || '',
                     name: fromStation.stationName.split(' - ')[0],

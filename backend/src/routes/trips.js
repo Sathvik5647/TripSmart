@@ -444,6 +444,30 @@ const generateTripPlan = async (preferences) => {
     // Use the nights calculated by the algorithm (which accounts for overnight travel)
     const actualNightsUsed = algoPlan.breakdown.nightsUsed ?? planArrivalInfo.adjustedNights;
 
+    // Generate per-plan itinerary based on this plan's specific transport
+    const durationStr = typeof planDuration === 'object' && planDuration.hours !== undefined
+      ? (planDuration.minutes > 0 ? `${planDuration.hours}h ${planDuration.minutes}m` : `${planDuration.hours}h`)
+      : String(planDuration || '2h');
+    const planTransportDetails = {
+      outboundDeparture: planDepartureTime,
+      outboundArrival: planArrivalInfo.arrivalTime,
+      isOvernightTravel: planArrivalInfo.isNextDayArrival,
+      returnDeparture: null,
+      returnDate: endDate,
+      transportName: transport.name || 'Transport',
+      transportPrice: transport.totalCost || 0,
+      transportDuration: durationStr,
+      sourceCity: (sourceCity && sourceCity.name) ? sourceCity.name : String(sourceCity || ''),
+      destCity:   (destCity   && destCity.name)   ? destCity.name   : String(destCity   || '')
+    };
+    const planHotelDetails = accommodation
+      ? { hotelName: accommodation.name, pricePerNight: accommodation.price }
+      : {};
+    const planItinerary = generateItinerary(
+      destCity, actualNightsUsed, tripType,
+      planTransportDetails, planHotelDetails, isReturnTrip
+    );
+
     return {
       tier: tier,
       name: `${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`,
@@ -491,7 +515,8 @@ const generateTripPlan = async (preferences) => {
         tier: algoPlan.selections.activity?.type || 'standard',
         dailyCost: algoPlan.selections.activity?.price || 100,
         totalCost: algoPlan.breakdown.activityTotal
-      }
+      },
+      itinerary: planItinerary
     };
   };
 

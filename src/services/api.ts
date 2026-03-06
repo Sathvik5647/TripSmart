@@ -179,6 +179,8 @@ export interface TrainData {
   trainNumber: string;
   trainName: string;
   trainType: string;
+  /** Actual track waypoints from origin stop to destination stop (lat/lng pairs) */
+  routePath?: [number, number][];
   from: { code: string; name: string; city: string };
   to: { code: string; name: string; city: string };
   departure: string;

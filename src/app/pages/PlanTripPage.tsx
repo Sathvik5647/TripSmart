@@ -18,7 +18,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popove
 import { Badge } from '../components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
 import { citiesAPI, tripsAPI, flightsAPI, trainsAPI, formatINR, type CityData } from '../../services/api';
-import { getCoordinatesByIATA, arcPath } from '../../data/cityCoordinates';
+import { getCoordinatesByIATA, getCoordinates, arcPath } from '../../data/cityCoordinates';
+import { getRailwayCorridors } from '../../data/railwayCorridors';
 import {
   MapPin,
   Calendar as CalendarIcon,
@@ -86,7 +87,7 @@ const getDefaultFormData = () => {
     trainClasses: [] as string[],    // Multiple selections allowed
     busType: 'ac',
     busOperator: 'private',
-    maxTransfers: 1,
+    maxTransfers: 0,
     priority: 'balanced',
     travelStyle: 'moderate',
     interests: ['culture'],
@@ -379,18 +380,37 @@ export default function PlanTripPage() {
         setPrefetchedFlightPaths(paths);
       }
       // ── Train paths ──────────────────────────────────────────
-      if (trainRes.status === 'fulfilled') {
+      // ── Train paths ──────────────────────────────────────────────────────
+      // 1️⃣ Try all pre-computed railway corridors (most accurate)
+      const corridorPaths = getRailwayCorridors(formData.origin, formData.destination);
+      if (corridorPaths && corridorPaths.length > 0) {
+        setPrefetchedTrainPaths(corridorPaths);
+      } else if (trainRes.status === 'fulfilled' && trainRes.value.trains?.length > 0) {
+        // 2️⃣ Fall back to all unique station-resolved paths from backend
+        const trains = trainRes.value.trains;
         const seen = new Set<string>();
-        const paths: [number, number][][] = [];
-        for (const train of (trainRes.value.trains ?? [])) {
-          const fromC = getCoordinatesByIATA(train.from.city);
-          const toC   = getCoordinatesByIATA(train.to.city);
-          if (!fromC || !toC) continue;
-          const k = `${train.from.city}-${train.to.city}`;
-          if (!seen.has(k)) { seen.add(k); paths.push([fromC, toC]); }
-          if (paths.length >= 4) break;
+        const uniquePaths: [number, number][][] = [];
+        for (const t of trains) {
+          const rp = t.routePath as [number, number][] | undefined;
+          if (!rp || rp.length < 2) continue;
+          // Dedup by first+last point
+          const key = `${rp[0]},${rp[rp.length - 1]}`;
+          if (!seen.has(key)) { seen.add(key); uniquePaths.push(rp); }
+          if (uniquePaths.length >= 5) break;
         }
-        setPrefetchedTrainPaths(paths);
+        if (uniquePaths.length > 0) {
+          setPrefetchedTrainPaths(uniquePaths);
+        } else {
+          // 3️⃣ Last resort: city-centre straight line
+          const fromC = getCoordinates(formData.origin);
+          const toC   = getCoordinates(formData.destination);
+          if (fromC && toC) setPrefetchedTrainPaths([[fromC, toC]]);
+        }
+      } else {
+        // No trains found — still draw a straight line
+        const fromC = getCoordinates(formData.origin);
+        const toC   = getCoordinates(formData.destination);
+        if (fromC && toC) setPrefetchedTrainPaths([[fromC, toC]]);
       }
     });
   }, [formData.origin, formData.destination, originCityData, destinationCityData]);
@@ -609,7 +629,7 @@ export default function PlanTripPage() {
 
   return (
     <div className="map-page relative w-full h-dvh overflow-hidden">
-      {/* â”€â”€ Full-screen Map Background â”€â”€ */}
+      {/* ── Full-screen Map Background ── */}
       <MapBackground
         origin={formData.origin}
         destination={formData.destination}
@@ -632,12 +652,12 @@ export default function PlanTripPage() {
         }
       />
 
-      {/* â”€â”€ Navigation â”€â”€ */}
+      {/* ── Navigation ── */}
       <div className="absolute top-0 left-0 right-0 z-30">
         <Navigation />
       </div>
 
-      {/* â”€â”€ Continue Trip Dialog â”€â”€ */}
+      {/* ── Continue Trip Dialog ── */}
       <Dialog open={showContinueDialog} onOpenChange={setShowContinueDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -663,7 +683,7 @@ export default function PlanTripPage() {
         </DialogContent>
       </Dialog>
 
-      {/* â”€â”€ Floating Glass Panel (right side) â”€â”€ */}
+      {/* ── Floating Glass Panel (right side) ── */}
       <aside className="absolute top-0 right-0 h-full z-20 flex items-stretch pt-16 pb-4 pr-4 pl-0 pointer-events-none">
         <div className="glass-panel rounded-2xl w-[420px] max-w-[95vw] flex flex-col pointer-events-auto shadow-2xl overflow-hidden">
 
@@ -716,13 +736,13 @@ export default function PlanTripPage() {
             </div>
           )}
 
-          {/* Step Content â€“ scrollable */}
+          {/* Step Content – scrollable */}
           <form
             onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
             className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-slate-100"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}
           >
-            {/* â•â•â• STEP: BASIC DETAILS â•â•â• */}
+            {/* ═══ STEP: BASIC DETAILS ═══ */}
             {steps[currentStep].title === 'Basic Details' && (
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 <div className="space-y-1.5">
@@ -764,7 +784,7 @@ export default function PlanTripPage() {
                             : destinationCities.map((city) => (
                               <div key={city.code} className="flex items-center gap-3 p-3 cursor-pointer glass-dropdown-item transition-colors" onClick={() => selectDestinationCity(city)}>
                                 <MapPin className="h-4 w-4 text-red-400 shrink-0" />
-                                <div><div className="font-medium text-white text-sm">{city.name}</div><div className="text-xs text-slate-400">{city.state} Â· {city.popularFor?.slice(0, 2).join(', ')}</div></div>
+                                <div><div className="font-medium text-white text-sm">{city.name}</div><div className="text-xs text-slate-400">{city.state} · {city.popularFor?.slice(0, 2).join(', ')}</div></div>
                                 {city.transport?.hasAirport && <Plane className="h-3 w-3 text-slate-400 ml-auto" />}
                               </div>
                             ))}
@@ -842,7 +862,7 @@ export default function PlanTripPage() {
                         )}
                       </div>
                       {(formData.origin || formData.destination) && (
-                        <p className="text-xs text-slate-500">Route: {[formData.origin, ...formData.stops, formData.destination].filter(Boolean).join(' â†’ ')}</p>
+                        <p className="text-xs text-slate-500">Route: {[formData.origin, ...formData.stops, formData.destination].filter(Boolean).join(' → ')}</p>
                       )}
                     </div>
                   )}
@@ -850,7 +870,7 @@ export default function PlanTripPage() {
               </div>
             )}
 
-            {/* â•â•â• STEP: TRIP TYPE â•â•â• */}
+            {/* ═══ STEP: TRIP TYPE ═══ */}
             {steps[currentStep].title === 'Trip Type' && (
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 <div className="space-y-2">
@@ -922,40 +942,17 @@ export default function PlanTripPage() {
               </div>
             )}
 
-            {/* â•â•â• STEP: BUDGET â•â•â• */}
+            {/* ═══ STEP: BUDGET ═══ */}
             {steps[currentStep].title === 'Budget' && (
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 <div className="text-center py-2">
                   <p className="text-4xl font-bold text-white">{formatINR(formData.budget)}</p>
-                  <p className="text-slate-400 text-sm mt-1">per person</p>
+                  <p className="text-slate-400 text-sm mt-1">total for {formData.travelers || 1} traveler{(formData.travelers || 1) !== 1 ? 's' : ''}</p>
                 </div>
                 <input type="range" min={0} max={200000} step={1000} value={formData.budget}
                   onChange={(e) => setFormData({ ...formData, budget: parseInt(e.target.value) })}
                   className="w-full accent-blue-500 cursor-pointer" />
-                <div className="flex justify-between text-xs text-slate-500"><span>â‚¹0</span><span>â‚¹2,00,000+</span></div>
-
-                <div className="space-y-2">
-                  <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">Budget Breakdown</p>
-                  <div className="h-7 w-full flex rounded-full overflow-hidden">
-                    <div className="flex items-center justify-center text-[10px] text-white font-bold bg-blue-500 w-[40%]">40% âœˆ</div>
-                    <div className="flex items-center justify-center text-[10px] text-white font-bold bg-emerald-500 w-[35%]">35% ðŸ¨</div>
-                    <div className="flex items-center justify-center text-[10px] text-white font-bold bg-orange-500 w-[15%]">15% ðŸ½</div>
-                    <div className="flex items-center justify-center text-[10px] text-white font-bold bg-purple-500 w-[10%]">10%</div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1 text-xs text-center">
-                    {[
-                      { label: 'Transport', pct: 0.4, color: 'text-blue-400' },
-                      { label: 'Stay', pct: 0.35, color: 'text-emerald-400' },
-                      { label: 'Food', pct: 0.15, color: 'text-orange-400' },
-                      { label: 'Fun', pct: 0.1, color: 'text-purple-400' },
-                    ].map(b => (
-                      <div key={b.label}>
-                        <p className={cn('font-semibold', b.color)}>{formatINR(formData.budget * b.pct)}</p>
-                        <p className="text-slate-500">{b.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <div className="flex justify-between text-xs text-slate-500"><span>₹0</span><span>₹2,00,000+</span></div>
 
                 <div className="space-y-2">
                   <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">Flexibility</p>
@@ -972,7 +969,7 @@ export default function PlanTripPage() {
               </div>
             )}
 
-            {/* â•â•â• STEP: SELECT PLACES â•â•â• */}
+            {/* ═══ STEP: SELECT PLACES ═══ */}
             {steps[currentStep].title === 'Select Places' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 {isLoadingAttractions ? (
@@ -1008,9 +1005,9 @@ export default function PlanTripPage() {
                             <div className="flex-1">
                               <div className="flex items-center justify-between">
                                 <span className="font-medium text-sm text-white">{place.name}</span>
-                                <span className={cn("text-xs px-2 py-0.5 rounded-full", place.entryFee === 0 ? "bg-green-500/20 text-green-300" : "bg-white/10 text-slate-300")}>{place.entryFee === 0 ? 'FREE' : `â‚¹${place.entryFee}`}</span>
+                                <span className={cn("text-xs px-2 py-0.5 rounded-full", place.entryFee === 0 ? "bg-green-500/20 text-green-300" : "bg-white/10 text-slate-300")}>{place.entryFee === 0 ? 'FREE' : `₹${place.entryFee}`}</span>
                               </div>
-                              <div className="flex gap-3 text-xs text-slate-500 mt-0.5"><span>{place.type}</span><span>Â· {place.duration}</span></div>
+                              <div className="flex gap-3 text-xs text-slate-500 mt-0.5"><span>{place.type}</span><span>· {place.duration}</span></div>
                             </div>
                           </div>
                         </div>
@@ -1018,14 +1015,14 @@ export default function PlanTripPage() {
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl bg-blue-500/10 border border-blue-400/20">
                       <span className="text-sm text-slate-300">Total entry fees:</span>
-                      <span className="font-bold text-blue-300">â‚¹{destinationAttractions.filter(p => selectedPlaces.includes(p.id)).reduce((s, p) => s + (p.entryFee || 0), 0).toLocaleString('en-IN')}</span>
+                      <span className="font-bold text-blue-300">₹{destinationAttractions.filter(p => selectedPlaces.includes(p.id)).reduce((s, p) => s + (p.entryFee || 0), 0).toLocaleString('en-IN')}</span>
                     </div>
                   </>
                 )}
               </div>
             )}
 
-            {/* â•â•â• STEP: ACCOMMODATION â•â•â• */}
+            {/* ═══ STEP: ACCOMMODATION ═══ */}
             {steps[currentStep].title === 'Accommodation' && (
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 {!formData.isReturnTrip && (
@@ -1037,7 +1034,7 @@ export default function PlanTripPage() {
                       <div className="flex-1 text-center"><span className="text-2xl font-bold text-white">{formData.stayNights}</span><span className="text-slate-400 ml-2 text-sm">{formData.stayNights === 1 ? 'night' : 'nights'}</span></div>
                       <button type="button" onClick={() => setFormData({ ...formData, stayNights: formData.stayNights + 1, noStay: false })} className="h-9 w-9 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold">+</button>
                     </div>
-                    {formData.stayNights === 0 && <p className="text-xs text-amber-400">âš ï¸ No accommodation will be included.</p>}
+                    {formData.stayNights === 0 && <p className="text-xs text-amber-400">⚠️ No accommodation will be included.</p>}
                   </div>
                 )}
 
@@ -1078,7 +1075,7 @@ export default function PlanTripPage() {
                       <div className="flex gap-2">
                         {[1, 2, 3, 4, 5].map(star => (
                           <button key={star} type="button" onClick={() => setFormData({ ...formData, starRating: star })}
-                            className={cn("h-9 w-9 rounded-lg text-sm font-bold transition-all", star <= formData.starRating ? "bg-amber-500 text-white" : "bg-white/10 text-slate-400 hover:bg-white/20")}>{star}â˜…</button>
+                            className={cn("h-9 w-9 rounded-lg text-sm font-bold transition-all", star <= formData.starRating ? "bg-amber-500 text-white" : "bg-white/10 text-slate-400 hover:bg-white/20")}>{star}★</button>
                         ))}
                       </div>
                     </div>
@@ -1096,7 +1093,7 @@ export default function PlanTripPage() {
               </div>
             )}
 
-            {/* â•â•â• STEP: TRANSPORTATION â•â•â• */}
+            {/* ═══ STEP: TRANSPORTATION ═══ */}
             {steps[currentStep].title === 'Transportation' && (
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 <div className="grid grid-cols-3 gap-3">
@@ -1200,7 +1197,7 @@ export default function PlanTripPage() {
               </div>
             )}
 
-            {/* â•â•â• STEP: IN-CITY TRANSPORT â•â•â• */}
+            {/* ═══ STEP: IN-CITY TRANSPORT ═══ */}
             {steps[currentStep].title === 'In-City Transport' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 <p className="text-sm text-slate-400">How do you prefer to get around at your destination?</p>
@@ -1230,7 +1227,7 @@ export default function PlanTripPage() {
               </div>
             )}
 
-            {/* â•â•â• STEP: PRIORITIES â•â•â• */}
+            {/* ═══ STEP: PRIORITIES ═══ */}
             {steps[currentStep].title === 'Priorities' && (
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 <div className="space-y-2">
@@ -1271,7 +1268,7 @@ export default function PlanTripPage() {
               </div>
             )}
 
-            {/* â•â•â• STEP: INTERESTS â•â•â• */}
+            {/* ═══ STEP: INTERESTS ═══ */}
             {steps[currentStep].title === 'Interests' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 <p className="text-sm text-slate-400">Select interests for your tour (tap to toggle):</p>
@@ -1291,7 +1288,7 @@ export default function PlanTripPage() {
               </div>
             )}
 
-            {/* â•â•â• STEP: ADDITIONAL (OPTIONAL) â•â•â• */}
+            {/* ═══ STEP: ADDITIONAL (OPTIONAL) ═══ */}
             {steps[currentStep].title === 'Additional (Optional)' && (
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-400">
                 <div className="space-y-2">
@@ -1329,7 +1326,7 @@ export default function PlanTripPage() {
             )}
           </form>
 
-          {/* â”€â”€ Navigation Buttons â”€â”€ */}
+          {/* ── Navigation Buttons ── */}
           <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between gap-3">
             {(formData.origin || formData.destination) && (
               <button type="button" onClick={startNewTrip} className="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1">
