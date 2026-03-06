@@ -86,22 +86,19 @@ class TripAlgorithmService {
             nights,
             tripType = 'tour',
             noStay = false,
-            includeActivities = true,  // NEW: User can opt-out of activities for direct travel
-            budgetFlexibility = 'moderate',  // NEW: 'strict' | 'moderate' | 'flexible'
-            options = {}  // { transport: [], accommodation: [], meal: [], activity: [] }
+            includeActivities = true,
+            budgetFlexibility = 'moderate',
+            isReturnTrip = true,  // NEW: affects transport cost multiplier and hotel nights
+            options = {}
         } = params;
 
         console.log('\n========== TRIP ALGORITHM START ==========');
-        console.log(`Budget: ₹${budget.toLocaleString()} | Days: ${durationDays} | Travelers: ${travelers} | Type: ${tripType}`);
+        console.log(`Budget: ₹${budget.toLocaleString()} | Days: ${durationDays} | Travelers: ${travelers} | Type: ${tripType} | Return: ${isReturnTrip}`);
         console.log(`Budget Flexibility: ${budgetFlexibility} | Include Activities: ${includeActivities}`);
 
         const validPlans = [];
         const warnings = [];
         let cheapestPossible = Infinity;
-
-        // 1. Calculate dynamic budget split
-        const split = this.calculateDynamicSplit(durationDays, tripType, includeActivities, noStay);
-        console.log(`Dynamic Split: Transport ${split.transport}% | Accommodation ${split.accommodation}% | Meal ${split.meal}% | Activity ${split.activity}%`);
 
         // 2. Validate we have options
         const transportOptions = options.transport || [];
@@ -156,7 +153,7 @@ class TripAlgorithmService {
             // Validate combination exists
             if (this._isValidCombo(combo)) {
                 // Calculate costs
-                const costs = this._calculateCosts(combo, { travelers, durationDays, nights, noStay, tripType });
+                const costs = this._calculateCosts(combo, { travelers, durationDays, nights, noStay, tripType, isReturnTrip });
 
                 // Track cheapest possible
                 if (costs.totalCost < cheapestPossible) {
@@ -236,28 +233,22 @@ class TripAlgorithmService {
         if (validPlans.length > 0) {
             // Sort plans
             const sortedByScore = [...validPlans].sort((a, b) => b.score - a.score);
-            const sortedByCost = [...validPlans].sort((a, b) => b.totalCost - a.totalCost);
 
-            // Find key plans
-            const closestToBudget = sortedByCost.find(p => p.budgetUtilization >= 0.85) || sortedByCost[0];
-            const cheapestOption = sortedByCost[sortedByCost.length - 1];
-
-            // DIVERSIFY BY TRANSPORT: Group plans by transport option
-            const plansByTransport = new Map();
+            // DIVERSIFY BY TRANSPORT ID: Group plans by specific transport option
+            const plansByTransportId = new Map();
             validPlans.forEach(plan => {
                 const transportId = plan.selections.transport.id;
-                if (!plansByTransport.has(transportId)) {
-                    plansByTransport.set(transportId, []);
+                if (!plansByTransportId.has(transportId)) {
+                    plansByTransportId.set(transportId, []);
                 }
-                plansByTransport.get(transportId).push(plan);
+                plansByTransportId.get(transportId).push(plan);
             });
 
-            console.log(`   📊 Plans grouped by ${plansByTransport.size} different transport options`);
+            console.log(`   📊 Plans grouped by ${plansByTransportId.size} different transport options`);
 
             // Get best plan from each transport option for diversity
             const diversePlans = [];
-            plansByTransport.forEach((plans, transportId) => {
-                // Pick best plan from this transport option (highest score)
+            plansByTransportId.forEach((plans) => {
                 const bestForTransport = plans.sort((a, b) => b.score - a.score)[0];
                 diversePlans.push(bestForTransport);
             });
@@ -265,42 +256,81 @@ class TripAlgorithmService {
             // Sort diverse plans by score
             diversePlans.sort((a, b) => b.score - a.score);
 
-            console.log(`   🎯 Selected ${diversePlans.length} diverse transport options (top one per transport)`);
+            // FILL TRANSPORT MODE GAPS: Check which transport modes (flight/train) are
+            // represented in validPlans. If a mode has no valid plans but has over-budget
+            // plans, include the cheapest over-budget plan for that mode so users always
+            // see diverse transport options (e.g., both flights and trains).
+            const validModes = new Set(validPlans.map(p => p.selections.transport.mode));
+            const overBudgetModes = new Set();
+            const cheapestOverBudgetByMode = {};
+
+            overBudgetPlans.forEach(p => {
+                const mode = p.selections.transport.mode;
+                overBudgetModes.add(mode);
+                if (!cheapestOverBudgetByMode[mode] || p.totalCost < cheapestOverBudgetByMode[mode].totalCost) {
+                    cheapestOverBudgetByMode[mode] = p;
+                }
+            });
+
+            // Add over-budget plans for modes not represented in valid plans
+            const modeGapPlans = [];
+            overBudgetModes.forEach(mode => {
+                if (!validModes.has(mode) && cheapestOverBudgetByMode[mode]) {
+                    const gapPlan = {
+                        ...cheapestOverBudgetByMode[mode],
+                        isOverBudget: true,
+                        overBudgetBy: cheapestOverBudgetByMode[mode].totalCost - budget
+                    };
+                    modeGapPlans.push(gapPlan);
+                    console.log(`   ✈️  Adding over-budget ${mode} as mode-diversity alternative (₹${gapPlan.totalCost.toLocaleString()}, ₹${gapPlan.overBudgetBy.toLocaleString()} over)`);
+                }
+            });
+
+            console.log(`   🎯 Selected ${diversePlans.length} diverse within-budget plans + ${modeGapPlans.length} mode-gap alternatives`);
 
             // Budget Flexibility Strategies
+            const categoryLabels = ['Best Value', 'Budget Saver', 'Balanced Choice', 'Comfort Choice', 'Premium Choice'];
+
             if (budgetFlexibility === 'strict') {
-                // STRICT: User wants to stay within budget, show best quality options (diverse transports)
                 console.log('   🛡️ STRICT mode: Best quality within budget');
                 rankedPlans = diversePlans.slice(0, 10).map((plan, i) => ({
                     ...plan,
-                    category: i === 0 ? 'Best Value' : i === 1 ? 'Budget Saver' : `Option ${i + 1}`
+                    category: categoryLabels[i] || `Option ${i + 1}`
                 }));
 
             } else if (budgetFlexibility === 'flexible') {
-                // FLEXIBLE: Show premium options even if over budget
-                console.log('   🚀 FLEXIBLE mode: One higher, one same, one lower + premium');
-
-                // Use diverse plans instead of all plans
-                rankedPlans = diversePlans.slice(0, 10).map((plan, i) => ({
+                console.log('   🚀 FLEXIBLE mode: Diverse + mode-gap alternatives');
+                const combined = [...diversePlans, ...modeGapPlans].sort((a, b) => b.score - a.score);
+                rankedPlans = combined.slice(0, 10).map((plan, i) => ({
                     ...plan,
-                    category: i === 0 ? 'Premium Choice' : i === 1 ? 'Best Value' : i === 2 ? 'Budget Saver' : `Alternative ${i - 2}`
+                    category: plan.isOverBudget
+                        ? `Premium ${plan.selections.transport.mode === 'flight' ? 'Flight' : 'Train'} Option`
+                        : (categoryLabels[i] || `Option ${i + 1}`)
                 }));
 
             } else {
-                // MODERATE (default): Use diverse transport options
-                console.log('   ⚖️ MODERATE mode: Diverse transport options');
-
-                // Use diverse plans (one best plan per transport option)
-                rankedPlans = diversePlans.slice(0, 10).map((plan, i) => ({
+                // MODERATE (default): Within-budget diverse plans + mode-gap alternatives at the end
+                console.log('   ⚖️ MODERATE mode: Diverse transport + mode-gap alternatives');
+                rankedPlans = diversePlans.slice(0, 8).map((plan, i) => ({
                     ...plan,
-                    category: i === 0 ? 'Best Value' : i === 1 ? 'Budget Saver' : i === 2 ? 'Balanced Choice' : i === 3 ? 'Comfort Choice' : `Option ${i + 1}`
+                    category: categoryLabels[i] || `Option ${i + 1}`
                 }));
+                // Append over-budget mode-gap plans (clearly labelled)
+                modeGapPlans.forEach(plan => {
+                    if (rankedPlans.length < 10) {
+                        rankedPlans.push({
+                            ...plan,
+                            category: `Premium ${plan.selections.transport.mode === 'flight' ? 'Flight' : plan.selections.transport.mode === 'train' ? 'Train' : 'Transport'} Option`
+                        });
+                    }
+                });
             }
 
             console.log(`   Selected ${rankedPlans.length} plans:`);
             rankedPlans.forEach(p => {
                 const transportName = p.selections.transport.name || 'Unknown';
-                console.log(`      - ${p.category}: ${transportName} - ₹${p.totalCost.toLocaleString()} (${Math.round(p.budgetUtilization * 100)}%, score ${p.score})`);
+                const utilPct = p.isOverBudget ? `OVER by ₹${p.overBudgetBy?.toLocaleString()}` : `${Math.round((p.budgetUtilization || 0) * 100)}%`;
+                console.log(`      - ${p.category}: ${transportName} - ₹${p.totalCost.toLocaleString()} (${utilPct}, score ${p.score})`);
             });
 
         } else if (overBudgetPlans.length > 0) {
@@ -458,21 +488,26 @@ class TripAlgorithmService {
      * @private
      */
     static _calculateCosts(combo, params) {
-        const { travelers, durationDays, nights, noStay, tripType } = params;
+        const { travelers, durationDays, nights, noStay, tripType, isReturnTrip = true } = params;
 
-        // 1. Transport: Total fare (already calculated per person * travelers * round trip)
+        // 1. Transport: Total fare (already calculated per person * travelers * round trip factor)
         const transportTotal = combo.transport.totalCost || combo.transport.price || 0;
 
         // 2. Accommodation: Price per night * nights * rooms needed
-        // UPDATED: Calculate nights per-plan based on overnight travel
         let accommodationTotal = 0;
-        let nightsForThisPlan = nights; // Fallback to global nights
-        
-        // Calculate nights spent in transit (e.g., overnight train)
-        const nightsInTransit = this._calculateNightsInTransit(combo.transport);
-        
-        // Adjust hotel nights: if traveling overnight, reduce hotel nights
-        nightsForThisPlan = Math.max(0, nights - nightsInTransit);
+        let nightsForThisPlan = nights;
+
+        // For ONE-WAY trips: stayNights is the number of nights AT the destination.
+        // The overnight travel is the journey TO get there, not a night at the destination.
+        // So we do NOT reduce hotel nights by nightsInTransit for one-way trips.
+        //
+        // For ROUND TRIPS: total nights span includes travel days, so overnight transit
+        // directly reduces the nights you need a hotel (you slept on the train/flight).
+        if (isReturnTrip) {
+            const nightsInTransit = this._calculateNightsInTransit(combo.transport);
+            nightsForThisPlan = Math.max(0, nights - nightsInTransit);
+        }
+        // else: nightsForThisPlan stays as `nights` (the user-specified stay duration)
         
         if (!noStay && combo.accommodation && combo.accommodation.price > 0) {
             const roomsNeeded = Math.ceil(travelers / 2);

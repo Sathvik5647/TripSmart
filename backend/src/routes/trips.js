@@ -142,7 +142,7 @@ const generateTripPlan = async (preferences) => {
     tripType,
     noStay,
     isReturnTrip,
-    stayNights = 1,  // NEW: For one-way trips - user-specified nights to stay
+    stayNights,  // For one-way trips - user-specified nights to stay (falls back to date diff)
     includeActivities = true,  // User can opt-out of activities for direct travel
     transportation = [], // User's selected transport modes
     flightClasses = [],
@@ -164,15 +164,16 @@ const generateTripPlan = async (preferences) => {
   const destCode = destCity.code;
 
   // Calculate trip duration
-  // For return trips: calculate from dates
-  // For one-way trips: use stayNights specified by user
+  // For return trips: always calculate from dates
+  // For one-way trips: use stayNights if explicitly provided, otherwise fall back to date diff
   const start = new Date(startDate);
   const end = new Date(endDate);
+  const dateDiffNights = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
   const nights = isReturnTrip
-    ? Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)))
-    : stayNights;  // Use user-specified nights for one-way trips
+    ? dateDiffNights
+    : (stayNights && stayNights > 0 ? stayNights : dateDiffNights);
 
-  console.log(`\n📅 Trip Duration: ${nights} nights (isReturnTrip: ${isReturnTrip}, stayNights: ${stayNights})`);
+  console.log(`\n📅 Trip Duration: ${nights} nights (isReturnTrip: ${isReturnTrip}, stayNights: ${stayNights}, dateDiff: ${dateDiffNights})`);
 
   // Get transport options using city codes
   console.log(`\n🔍 Searching for transport options:`);
@@ -183,7 +184,7 @@ const generateTripPlan = async (preferences) => {
     from: sourceCode,
     to: destCode,
     date: startDate,
-    returnDate: endDate,
+    returnDate: isReturnTrip ? endDate : undefined,  // only pass returnDate for round trips
     travelers,
     cabinClass: 'economy'
   });
@@ -265,7 +266,7 @@ const generateTripPlan = async (preferences) => {
   const budgetAllocation = BudgetService.calculateAllocation({
     tripType: tripType || 'tour',
     durationDays,
-    budget: userBudget * travelers, // Total budget for all travelers
+    budget: userBudget, // Total budget as given by user
     destination: destCity.name,
     priorities: tripPreferences?.priorities || { budget: 0.5, time: 0.5, comfort: 0.5 },
   });
@@ -275,7 +276,7 @@ const generateTripPlan = async (preferences) => {
     tripType: tripType || 'tour',
     durationDays,
     travelers,
-    budget: userBudget * travelers,
+    budget: userBudget,
   });
 
   if (!budgetValidation.valid) {
@@ -403,6 +404,7 @@ const generateTripPlan = async (preferences) => {
     nights,
     tripType: tripType || 'tour',
     noStay,
+    isReturnTrip,  // pass through so algorithm adjusts cost/hotel logic
     includeActivities,  // NEW: User preference for activities
     budgetFlexibility: preferences.budgetFlexibility || 'moderate',  // NEW: Budget flexibility
     options: {
@@ -473,6 +475,8 @@ const generateTripPlan = async (preferences) => {
       name: `${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`,
       totalCost: algoPlan.totalCost,
       score: algoPlan.score,
+      isOverBudget: algoPlan.isOverBudget || false,      // flag so frontend can label it
+      overBudgetBy: algoPlan.overBudgetBy || 0,
       breakdown: algoPlan.breakdown,
       // NEW: Per-plan adjusted nights based on this plan's transport timing
       nights: actualNightsUsed,
@@ -860,13 +864,13 @@ const generateTripPlan = async (preferences) => {
         total: Math.round(transportCost + localTransportCost + totalHotelCost + activitiesCost + mealsCost + miscCost)
       },
       highlights: noStay ? [
-        'Round-trip flights included',
+        isReturnTrip ? 'Round-trip flights included' : 'One-way flight included',
         comfortLocalTransport ? `Private ${comfortLocalTransport.carType || 'car'} with driver` : null,
         'Day trip - no accommodation',
         'Guided tours and activities'
       ].filter(Boolean) : [
         `${comfortNights} nights at ${comfortHotel?.stars || 3}-star ${comfortHotel?.name || 'Hotel'}`,
-        'Round-trip flights included',
+        isReturnTrip ? 'Round-trip flights included' : 'One-way flight included',
         comfortLocalTransport ? `Private ${comfortLocalTransport.carType || 'car'} with driver` : null,
         'Guided tours and activities',
         'Breakfast included'
@@ -946,14 +950,14 @@ const generateTripPlan = async (preferences) => {
         total: Math.round(transportCost + localTransportCost + totalHotelCost + activitiesCost + mealsCost + miscCost)
       },
       highlights: noStay ? [
-        'Business class flights',
+        isReturnTrip ? 'Round-trip business class flights' : 'One-way business class flight',
         premiumLocalTransport ? `Luxury ${premiumLocalTransport.carType || 'car'} with chauffeur` : null,
         'Premium day trip experience',
         'Private tours and experiences',
         'All meals included'
       ].filter(Boolean) : [
         `${premiumNights} nights at ${premiumHotel?.stars || 5}-star ${premiumHotel?.name || 'Hotel'}`,
-        'Business class flights',
+        isReturnTrip ? 'Round-trip business class flights' : 'One-way business class flight',
         premiumLocalTransport ? `Luxury ${premiumLocalTransport.carType || 'car'} with chauffeur` : null,
         'Private tours and premium experiences',
         'All meals included',
@@ -1026,7 +1030,9 @@ const generateTripPlan = async (preferences) => {
 
   // === NEW: Calculate actual arrival using helper function ===
   const arrivalInfo = calculateArrivalInfo(startDate, departureTime, rawDuration, nights);
-  const adjustedNights = arrivalInfo.adjustedNights;
+  // For one-way trips: stayNights is the user-specified hotel duration — don't reduce it
+  // For round trips: subtract nights spent in transit (sleeping on overnight train/flight)
+  const adjustedNights = isReturnTrip ? arrivalInfo.adjustedNights : nights;
 
   console.log(`\n🏨 Hotel Nights Calculation:`);
   console.log(`   Requested nights: ${nights}`);
@@ -1289,12 +1295,27 @@ const generateItinerary = (city, nights, tripType, transportDetails = {}, hotelD
     // Last Day: Departure/Return (different for one-way vs round trip)
     else if (day === totalDays) {
       if (!isReturnTrip) {
-        // ONE-WAY TRIP: Last day is just check-out, no return transport
-        dayPlan.title = 'Check-out Day';
+        // ONE-WAY TRIP: Last day – check-out + last morning at destination
+        dayPlan.title = `Last Day in ${city.name} - Check-out`;
+        // Show remaining attractions on the last day
+        const lastAttrIdx = calculatedOvernightTravel ? totalDays - 3 : totalDays - 2;
+        const lastAttractions = attractions.slice(lastAttrIdx * 2, lastAttrIdx * 2 + 2);
         dayPlan.activities = [
-          { time: '08:00', activity: 'Breakfast at hotel', type: 'meal', cost: 200 },
-          { time: '10:00', activity: 'Hotel check-out', type: 'travel' },
-          { time: '11:00', activity: 'Free time / Trip ends', type: 'leisure', description: 'One-way trip ends - no return transport planned' }
+          { time: '07:30', activity: 'Breakfast at hotel', type: 'meal', cost: 200 },
+          {
+            time: '09:00 - 11:30',
+            activity: lastAttractions[0]?.name || `Last morning sightseeing in ${city.name}`,
+            type: 'attraction',
+            details: lastAttractions[0]
+          },
+          { time: '12:00', activity: 'Lunch – try a local specialty', type: 'meal', cost: 300 },
+          {
+            time: '13:30',
+            activity: lastAttractions[1]?.name || 'Shopping for souvenirs and local crafts',
+            type: 'leisure'
+          },
+          { time: '15:00', activity: `Hotel check-out from ${hotelName}`, type: 'travel' },
+          { time: '16:00', activity: 'Trip ends – onward journey at your own arrangement', type: 'leisure', description: 'One-way trip complete' }
         ];
       } else {
         // ROUND TRIP: Include return transport
@@ -1384,7 +1405,7 @@ router.post('/plan', optionalAuthMiddleware, async (req, res) => {
       tripType = 'leisure',
       noStay = false,
       isReturnTrip = true,
-      stayNights = 1,           // NEW: For one-way trips
+      stayNights,               // For one-way trips (falls back to date diff if omitted)
       transportation = [],
       flightClasses = [],
       trainClasses = [],
