@@ -36,7 +36,20 @@ const CITY_NAME_MAPPINGS = {
     'GUW': ['GUWAHATI', 'GHY'],
     'RNC': ['RANCHI', 'RNC'],
     'TVC': ['TRIVANDRUM', 'THIRUVANANTHAPURAM', 'TVC'],
-    'MYS': ['MYSORE', 'MYSURU', 'MYS']
+    'MYS': ['MYSORE', 'MYSURU', 'MYS'],
+    // Aliases for new city IATA codes used by the frontend
+    'PNQ': ['PUNE', 'POONA'],
+    'AMD': ['AHMEDABAD', 'ADI'],
+    'NAG': ['NAGPUR', 'NGP'],
+    'BHO': ['BHOPAL', 'BPL'],
+    'JDH': ['JODHPUR', 'JU'],
+    'GAU': ['GUWAHATI', 'GHY'],
+    'MYQ': ['MYSORE', 'MYSURU', 'MYS'],
+    'VTZ': ['VISAKHAPATNAM', 'VIZAG', 'WALTAIR', 'VSKP'],
+    'JSA': ['JAISALMER', 'JSM'],
+    'CJB': ['COIMBATORE', 'CBE'],
+    'IXC': ['CHANDIGARH', 'CDG'],
+    'BBI': ['BHUBANESWAR', 'BBS']
 };
 
 // Train class prices

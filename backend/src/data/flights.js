@@ -97,7 +97,134 @@ const routes = [
   { from: 'COK', to: 'BLR', distance: 355, duration: 55, basePrice: { economy: 2200, business: 6000 } },
   { from: 'IXZ', to: 'MAA', distance: 1190, duration: 130, basePrice: { economy: 5000, business: 13000 } },
   { from: 'IXZ', to: 'CCU', distance: 1650, duration: 160, basePrice: { economy: 6500, business: 17000 } },
-  { from: 'IXZ', to: 'DEL', distance: 2775, duration: 210, basePrice: { economy: 8000, business: 22000 } }
+  { from: 'IXZ', to: 'DEL', distance: 2775, duration: 210, basePrice: { economy: 8000, business: 22000 } },
+
+  // Pune connections
+  { from: 'PNQ', to: 'DEL', distance: 1150, duration: 120, basePrice: { economy: 4200, business: 11000 } },
+  { from: 'PNQ', to: 'BLR', distance: 840, duration: 95, basePrice: { economy: 3200, business: 8500 } },
+  { from: 'PNQ', to: 'MAA', distance: 1030, duration: 110, basePrice: { economy: 3500, business: 9000 } },
+  { from: 'PNQ', to: 'HYD', distance: 560, duration: 70, basePrice: { economy: 2800, business: 7500 } },
+  { from: 'PNQ', to: 'GOI', distance: 450, duration: 65, basePrice: { economy: 2500, business: 7000 } },
+  { from: 'PNQ', to: 'JAI', distance: 1040, duration: 110, basePrice: { economy: 3800, business: 10000 } },
+  { from: 'PNQ', to: 'COK', distance: 920, duration: 105, basePrice: { economy: 3200, business: 8500 } },
+  { from: 'PNQ', to: 'CCU', distance: 1670, duration: 155, basePrice: { economy: 5000, business: 13500 } },
+  { from: 'DEL', to: 'PNQ', distance: 1150, duration: 120, basePrice: { economy: 4200, business: 11000 } },
+  { from: 'BLR', to: 'PNQ', distance: 840, duration: 95, basePrice: { economy: 3200, business: 8500 } },
+  { from: 'HYD', to: 'PNQ', distance: 560, duration: 70, basePrice: { economy: 2800, business: 7500 } },
+  { from: 'CCU', to: 'PNQ', distance: 1670, duration: 155, basePrice: { economy: 5000, business: 13500 } },
+
+  // Ahmedabad connections
+  { from: 'AMD', to: 'DEL', distance: 900, duration: 100, basePrice: { economy: 3800, business: 10000 } },
+  { from: 'AMD', to: 'BOM', distance: 440, duration: 60, basePrice: { economy: 2800, business: 7500 } },
+  { from: 'AMD', to: 'BLR', distance: 1325, duration: 130, basePrice: { economy: 4500, business: 12000 } },
+  { from: 'AMD', to: 'MAA', distance: 1430, duration: 140, basePrice: { economy: 4800, business: 12500 } },
+  { from: 'AMD', to: 'HYD', distance: 1005, duration: 110, basePrice: { economy: 4000, business: 10500 } },
+  { from: 'AMD', to: 'GOI', distance: 880, duration: 100, basePrice: { economy: 3500, business: 9000 } },
+  { from: 'AMD', to: 'JAI', distance: 640, duration: 80, basePrice: { economy: 3200, business: 8500 } },
+  { from: 'AMD', to: 'COK', distance: 1360, duration: 130, basePrice: { economy: 4500, business: 12000 } },
+  { from: 'DEL', to: 'AMD', distance: 900, duration: 100, basePrice: { economy: 3800, business: 10000 } },
+  { from: 'BOM', to: 'AMD', distance: 440, duration: 60, basePrice: { economy: 2800, business: 7500 } },
+
+  // Lucknow connections
+  { from: 'LKO', to: 'DEL', distance: 500, duration: 65, basePrice: { economy: 3200, business: 8500 } },
+  { from: 'LKO', to: 'BOM', distance: 1330, duration: 130, basePrice: { economy: 4500, business: 12000 } },
+  { from: 'LKO', to: 'BLR', distance: 1860, duration: 165, basePrice: { economy: 5200, business: 14000 } },
+  { from: 'LKO', to: 'MAA', distance: 1970, duration: 175, basePrice: { economy: 5500, business: 14500 } },
+  { from: 'LKO', to: 'GOI', distance: 1560, duration: 145, basePrice: { economy: 5000, business: 13500 } },
+  { from: 'LKO', to: 'HYD', distance: 1400, duration: 135, basePrice: { economy: 4500, business: 12000 } },
+  { from: 'DEL', to: 'LKO', distance: 500, duration: 65, basePrice: { economy: 3200, business: 8500 } },
+  { from: 'BOM', to: 'LKO', distance: 1330, duration: 130, basePrice: { economy: 4500, business: 12000 } },
+
+  // Nagpur connections
+  { from: 'NAG', to: 'DEL', distance: 1090, duration: 115, basePrice: { economy: 4000, business: 10500 } },
+  { from: 'NAG', to: 'BOM', distance: 840, duration: 95, basePrice: { economy: 3200, business: 8500 } },
+  { from: 'NAG', to: 'BLR', distance: 1000, duration: 110, basePrice: { economy: 3800, business: 10000 } },
+  { from: 'NAG', to: 'HYD', distance: 500, duration: 65, basePrice: { economy: 2800, business: 7500 } },
+  { from: 'DEL', to: 'NAG', distance: 1090, duration: 115, basePrice: { economy: 4000, business: 10500 } },
+  { from: 'BOM', to: 'NAG', distance: 840, duration: 95, basePrice: { economy: 3200, business: 8500 } },
+
+  // Indore connections
+  { from: 'IDR', to: 'DEL', distance: 840, duration: 95, basePrice: { economy: 3500, business: 9000 } },
+  { from: 'IDR', to: 'BOM', distance: 590, duration: 75, basePrice: { economy: 3000, business: 8000 } },
+  { from: 'IDR', to: 'BLR', distance: 1230, duration: 125, basePrice: { economy: 4200, business: 11000 } },
+  { from: 'IDR', to: 'HYD', distance: 785, duration: 90, basePrice: { economy: 3300, business: 8800 } },
+  { from: 'DEL', to: 'IDR', distance: 840, duration: 95, basePrice: { economy: 3500, business: 9000 } },
+  { from: 'BOM', to: 'IDR', distance: 590, duration: 75, basePrice: { economy: 3000, business: 8000 } },
+
+  // Mysore/MYQ connections (via Bangalore typically, direct limited)
+  { from: 'MYQ', to: 'DEL', distance: 1840, duration: 165, basePrice: { economy: 5500, business: 14500 } },
+  { from: 'MYQ', to: 'BOM', distance: 990, duration: 110, basePrice: { economy: 3800, business: 10000 } },
+  { from: 'DEL', to: 'MYQ', distance: 1840, duration: 165, basePrice: { economy: 5500, business: 14500 } },
+  { from: 'BOM', to: 'MYQ', distance: 990, duration: 110, basePrice: { economy: 3800, business: 10000 } },
+
+  // Jaisalmer connections
+  { from: 'JSA', to: 'DEL', distance: 760, duration: 90, basePrice: { economy: 4000, business: 10500 } },
+  { from: 'JSA', to: 'JAI', distance: 570, duration: 75, basePrice: { economy: 3500, business: 9000 } },
+  { from: 'DEL', to: 'JSA', distance: 760, duration: 90, basePrice: { economy: 4000, business: 10500 } },
+  { from: 'JAI', to: 'JSA', distance: 570, duration: 75, basePrice: { economy: 3500, business: 9000 } },
+
+  // Jodhpur connections
+  { from: 'JDH', to: 'DEL', distance: 625, duration: 80, basePrice: { economy: 3500, business: 9000 } },
+  { from: 'JDH', to: 'BOM', distance: 880, duration: 100, basePrice: { economy: 3800, business: 10000 } },
+  { from: 'JDH', to: 'JAI', distance: 335, duration: 55, basePrice: { economy: 2800, business: 7500 } },
+  { from: 'DEL', to: 'JDH', distance: 625, duration: 80, basePrice: { economy: 3500, business: 9000 } },
+  { from: 'BOM', to: 'JDH', distance: 880, duration: 100, basePrice: { economy: 3800, business: 10000 } },
+
+  // Coimbatore connections
+  { from: 'CJB', to: 'DEL', distance: 2050, duration: 175, basePrice: { economy: 5500, business: 14500 } },
+  { from: 'CJB', to: 'BOM', distance: 1195, duration: 120, basePrice: { economy: 4000, business: 10500 } },
+  { from: 'CJB', to: 'MAA', distance: 490, duration: 65, basePrice: { economy: 2500, business: 6500 } },
+  { from: 'CJB', to: 'BLR', distance: 360, duration: 55, basePrice: { economy: 2200, business: 6000 } },
+  { from: 'CJB', to: 'HYD', distance: 750, duration: 90, basePrice: { economy: 3200, business: 8500 } },
+  { from: 'DEL', to: 'CJB', distance: 2050, duration: 175, basePrice: { economy: 5500, business: 14500 } },
+  { from: 'BOM', to: 'CJB', distance: 1195, duration: 120, basePrice: { economy: 4000, business: 10500 } },
+  { from: 'MAA', to: 'CJB', distance: 490, duration: 65, basePrice: { economy: 2500, business: 6500 } },
+
+  // Guwahati connections
+  { from: 'GAU', to: 'DEL', distance: 1590, duration: 150, basePrice: { economy: 5000, business: 13000 } },
+  { from: 'GAU', to: 'CCU', distance: 455, duration: 65, basePrice: { economy: 2800, business: 7500 } },
+  { from: 'GAU', to: 'BOM', distance: 2200, duration: 185, basePrice: { economy: 6000, business: 16000 } },
+  { from: 'DEL', to: 'GAU', distance: 1590, duration: 150, basePrice: { economy: 5000, business: 13000 } },
+  { from: 'CCU', to: 'GAU', distance: 455, duration: 65, basePrice: { economy: 2800, business: 7500 } },
+
+  // Visakhapatnam connections
+  { from: 'VTZ', to: 'DEL', distance: 1490, duration: 140, basePrice: { economy: 4800, business: 12500 } },
+  { from: 'VTZ', to: 'BOM', distance: 1200, duration: 125, basePrice: { economy: 4200, business: 11000 } },
+  { from: 'VTZ', to: 'HYD', distance: 640, duration: 75, basePrice: { economy: 2800, business: 7500 } },
+  { from: 'VTZ', to: 'BLR', distance: 870, duration: 100, basePrice: { economy: 3500, business: 9000 } },
+  { from: 'VTZ', to: 'MAA', distance: 760, duration: 90, basePrice: { economy: 3200, business: 8500 } },
+  { from: 'DEL', to: 'VTZ', distance: 1490, duration: 140, basePrice: { economy: 4800, business: 12500 } },
+  { from: 'BOM', to: 'VTZ', distance: 1200, duration: 125, basePrice: { economy: 4200, business: 11000 } },
+  { from: 'HYD', to: 'VTZ', distance: 640, duration: 75, basePrice: { economy: 2800, business: 7500 } },
+
+  // Chandigarh connections
+  { from: 'IXC', to: 'DEL', distance: 250, duration: 50, basePrice: { economy: 2500, business: 6500 } },
+  { from: 'IXC', to: 'BOM', distance: 1360, duration: 135, basePrice: { economy: 4500, business: 12000 } },
+  { from: 'IXC', to: 'BLR', distance: 1990, duration: 170, basePrice: { economy: 5500, business: 14500 } },
+  { from: 'DEL', to: 'IXC', distance: 250, duration: 50, basePrice: { economy: 2500, business: 6500 } },
+  { from: 'BOM', to: 'IXC', distance: 1360, duration: 135, basePrice: { economy: 4500, business: 12000 } },
+
+  // Bhopal connections
+  { from: 'BHO', to: 'DEL', distance: 700, duration: 85, basePrice: { economy: 3300, business: 8800 } },
+  { from: 'BHO', to: 'BOM', distance: 735, duration: 90, basePrice: { economy: 3300, business: 8800 } },
+  { from: 'BHO', to: 'BLR', distance: 1290, duration: 130, basePrice: { economy: 4300, business: 11500 } },
+  { from: 'DEL', to: 'BHO', distance: 700, duration: 85, basePrice: { economy: 3300, business: 8800 } },
+  { from: 'BOM', to: 'BHO', distance: 735, duration: 90, basePrice: { economy: 3300, business: 8800 } },
+
+  // Bhubaneswar connections
+  { from: 'BBI', to: 'DEL', distance: 1475, duration: 140, basePrice: { economy: 4800, business: 12500 } },
+  { from: 'BBI', to: 'BOM', distance: 1700, duration: 155, basePrice: { economy: 5200, business: 14000 } },
+  { from: 'BBI', to: 'CCU', distance: 440, duration: 65, basePrice: { economy: 2800, business: 7500 } },
+  { from: 'BBI', to: 'HYD', distance: 840, duration: 100, basePrice: { economy: 3500, business: 9000 } },
+  { from: 'DEL', to: 'BBI', distance: 1475, duration: 140, basePrice: { economy: 4800, business: 12500 } },
+  { from: 'CCU', to: 'BBI', distance: 440, duration: 65, basePrice: { economy: 2800, business: 7500 } },
+
+  // Patna connections
+  { from: 'PAT', to: 'DEL', distance: 990, duration: 110, basePrice: { economy: 3800, business: 10000 } },
+  { from: 'PAT', to: 'BOM', distance: 1780, duration: 160, basePrice: { economy: 5200, business: 14000 } },
+  { from: 'PAT', to: 'CCU', distance: 570, duration: 75, basePrice: { economy: 3000, business: 8000 } },
+  { from: 'DEL', to: 'PAT', distance: 990, duration: 110, basePrice: { economy: 3800, business: 10000 } },
+  { from: 'CCU', to: 'PAT', distance: 570, duration: 75, basePrice: { economy: 3000, business: 8000 } }
 ];
 
 // Flight time slots (departure times)

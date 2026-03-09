@@ -56,6 +56,29 @@ export default function MyTripsPage() {
         }
     };
 
+    const handleDeleteTrip = async (tripId: string) => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`/api/user/trips/${tripId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (response.ok) {
+                setTrips(prev => prev.filter(t => t._id !== tripId));
+                toast.success('Trip deleted successfully');
+            } else {
+                toast.error('Failed to delete trip');
+            }
+        } catch (error) {
+            console.error('Error deleting trip:', error);
+            toast.error('Failed to delete trip');
+        }
+    };
+
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-IN', {
             day: 'numeric',
@@ -130,6 +153,17 @@ export default function MyTripsPage() {
                                     </div>
                                     <div className="text-xs text-muted-foreground">
                                         Saved on {formatDate(trip.createdAt)}
+                                    </div>
+                                    <div className="pt-2 flex justify-end">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() => handleDeleteTrip(trip._id)}
+                                        >
+                                            <Trash2 className="h-4 w-4 mr-1" />
+                                            Delete
+                                        </Button>
                                     </div>
                                 </CardContent>
                             </Card>

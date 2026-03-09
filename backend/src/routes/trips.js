@@ -1596,7 +1596,7 @@ router.post('/save', authMiddleware, async (req, res) => {
         highlights: plan.highlights || []
       }],
       booking: {
-        status: 'draft',
+        status: 'saved',
         selectedPlan: plan.name || plan.tier || 'Comfort',
         totalAmount: plan.price || 0
       }

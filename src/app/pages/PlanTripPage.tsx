@@ -236,7 +236,7 @@ export default function PlanTripPage() {
   useEffect(() => {
     const loadPopularCities = async () => {
       try {
-        const popular = await citiesAPI.getPopular(10);
+        const popular = await citiesAPI.getPopular(30);
         setOriginCities(popular);
         setDestinationCities(popular);
       } catch (error) {
@@ -250,7 +250,7 @@ export default function PlanTripPage() {
   useEffect(() => {
     const searchOrigin = async () => {
       if (!originSearch) {
-        const popular = await citiesAPI.getPopular(10);
+        const popular = await citiesAPI.getPopular(30);
         setOriginCities(popular);
         return;
       }
@@ -272,7 +272,7 @@ export default function PlanTripPage() {
   useEffect(() => {
     const searchDestination = async () => {
       if (!destinationSearch) {
-        const popular = await citiesAPI.getPopular(10);
+        const popular = await citiesAPI.getPopular(30);
         setDestinationCities(popular);
         return;
       }
@@ -294,7 +294,7 @@ export default function PlanTripPage() {
   useEffect(() => {
     const searchStop = async () => {
       if (!stopSearch) {
-        const popular = await citiesAPI.getPopular(10);
+        const popular = await citiesAPI.getPopular(30);
         setStopCities(popular);
         return;
       }

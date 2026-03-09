@@ -103,9 +103,10 @@ router.get('/search', (req, res) => {
  */
 router.get('/popular', (req, res) => {
   try {
+    const limit = parseInt(req.query.limit) || 20;
     const popularCities = cities
-      .filter(city => city.type === 'tourist' || city.type === 'metro')
-      .slice(0, 12);
+      .filter(city => city.type === 'tourist' || city.type === 'metro' || city.type === 'tier1')
+      .slice(0, limit);
 
     res.json({
       success: true,
