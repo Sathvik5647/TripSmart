@@ -1593,8 +1593,19 @@ router.post('/save', authMiddleware, async (req, res) => {
           miscellaneous: plan.breakdown?.misc || 0,
           total: plan.price || 0
         },
-        highlights: plan.highlights || []
+        highlights: plan.highlights || [],
+        // Extra display fields
+        displayName: plan.name || plan.tier || 'Comfort',
+        badge: plan.badge || '',
+        rating: plan.rating || 0,
+        duration: plan.duration || '',
+        activities: plan.activities || {}
       }],
+      itinerary: (plan.itinerary || []).map(day => ({
+        day: day.day,
+        title: day.title || `Day ${day.day}`,
+        activities: day.activities || []
+      })),
       booking: {
         status: 'saved',
         selectedPlan: plan.name || plan.tier || 'Comfort',

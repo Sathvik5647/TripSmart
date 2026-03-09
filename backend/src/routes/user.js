@@ -88,4 +88,38 @@ router.delete('/trips/:tripId', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * @route   GET /api/user/trips/:tripId
+ * @desc    Get full details of a single saved trip
+ * @access  Private
+ */
+router.get('/trips/:tripId', authMiddleware, async (req, res) => {
+    try {
+        const { tripId } = req.params;
+        const userId = req.userId;
+
+        const trip = await Trip.findOne({ _id: tripId, userId }).lean();
+
+        if (!trip) {
+            return res.status(404).json({
+                success: false,
+                error: 'Trip not found or not authorized'
+            });
+        }
+
+        console.log(`📄 Fetched trip ${tripId} for user ${userId}`);
+
+        res.json({
+            success: true,
+            data: trip
+        });
+    } catch (error) {
+        console.error('Error fetching trip details:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Server error while fetching trip'
+        });
+    }
+});
+
 module.exports = router;

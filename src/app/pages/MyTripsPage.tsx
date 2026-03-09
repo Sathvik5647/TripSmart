@@ -2,7 +2,7 @@ import Navigation from '../components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Loader2, MapPin, Calendar, Users, IndianRupee, Trash2 } from 'lucide-react';
+import { Loader2, MapPin, Calendar, Users, IndianRupee, Trash2, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect } from 'react';
@@ -154,7 +154,15 @@ export default function MyTripsPage() {
                                     <div className="text-xs text-muted-foreground">
                                         Saved on {formatDate(trip.createdAt)}
                                     </div>
-                                    <div className="pt-2 flex justify-end">
+                                    <div className="pt-2 flex justify-between items-center">
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            onClick={() => navigate(`/my-trips/${trip._id}`)}
+                                        >
+                                            <Eye className="h-4 w-4 mr-1" />
+                                            View
+                                        </Button>
                                         <Button
                                             variant="ghost"
                                             size="sm"

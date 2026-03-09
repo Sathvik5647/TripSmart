@@ -8,6 +8,7 @@ import TripDetailsPage from './pages/TripDetailsPage';
 // import BookingConfirmationPage from './pages/BookingConfirmationPage'; // Payment page removed
 import ProfilePage from './pages/ProfilePage';
 import MyTripsPage from './pages/MyTripsPage';
+import SavedTripDetailPage from './pages/SavedTripDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import AboutPage from './pages/AboutPage';
 import { Toaster } from './components/ui/sonner';
@@ -65,6 +66,7 @@ function AppRoutes() {
       {/* <Route path="/booking-confirmation" element={<BookingConfirmationPage />} /> */}
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/my-trips" element={<ProtectedRoute><MyTripsPage /></ProtectedRoute>} />
+      <Route path="/my-trips/:id" element={<ProtectedRoute><SavedTripDetailPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/about" element={<AboutPage />} />
     </Routes>
