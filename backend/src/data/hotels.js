@@ -59,37 +59,74 @@ const cityNameToCode = {
   'Ajmer': 'AJM',
   'Alleppey': 'ALP',
   'Bangalore': 'BLR',
+  'Bengaluru': 'BLR',
   'Mumbai': 'BOM',
   'Chennai': 'MAA',
   'Delhi': 'DEL',
+  'New Delhi': 'DEL',
   'Goa': 'GOI',
   'Hyderabad': 'HYD',
   'Jaipur': 'JAI',
   'Kolkata': 'CCU',
   'Kochi': 'COK',
+  'Cochin': 'COK',
   'Udaipur': 'UDR',
   'Varanasi': 'VNS',
   'Srinagar': 'SXR',
   'Leh': 'IXL',
   'Amritsar': 'ATR',
-  'Pune': 'PNE',
-  'Shimla': 'SML',
+  'Pune': 'PNQ',
+  'Shimla': 'SHL',
   'Manali': 'MNL',
-  'Rishikesh': 'RSK'
+  'Rishikesh': 'RIK',
+  'Lucknow': 'LKO',
+  'Indore': 'IDR',
+  'Nagpur': 'NAG',
+  'Bhopal': 'BHO',
+  'Visakhapatnam': 'VTZ',
+  'Vizag': 'VTZ',
+  'Mysore': 'MYQ',
+  'Mysuru': 'MYQ',
+  'Jaisalmer': 'JSA',
+  'Jodhpur': 'JDH',
+  'Coimbatore': 'CJB',
+  'Guwahati': 'GAU',
+  'Patna': 'PAT',
+  'Chandigarh': 'IXC',
+  'Bhubaneswar': 'BBI',
+  'Darjeeling': 'IXB',
+  'Munnar': 'IXM',
+  'Port Blair': 'IXZ',
+  'Mangalore': 'IXE',
+  'Mangaluru': 'IXE'
 };
 
-// Reverse mapping
+// Reverse mapping (auto-generated, may be overridden below)
 const cityCodeToName = Object.fromEntries(
   Object.entries(cityNameToCode).map(([name, code]) => [code, name])
 );
 
+// Explicit overrides to match exact city names as they appear in the CSV
+// (handles diacritics and alternate spellings)
+const cityCodeToCSVName = {
+  ...cityCodeToName,
+  'BLR': 'Bangalore',       // CSV uses "Bangalore", not "Bengaluru"
+  'COK': 'Cochin',          // CSV uses "Cochin", not "Kochi"
+  'IXC': 'Chandīgarh',      // CSV uses diacritic form
+};
+
+// Normalize a string by removing diacritics for fuzzy matching
+const normalizeCityName = (str) =>
+  str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 // Get hotels from CSV by city
 const getHotelsFromCSV = (cityCode) => {
-  const cityName = cityCodeToName[cityCode];
-  if (!cityName) return [];
+  const csvName = cityCodeToCSVName[cityCode] || cityCodeToName[cityCode];
+  if (!csvName) return [];
 
+  const normalizedTarget = normalizeCityName(csvName);
   return realHotelData.filter(h =>
-    h.city.toLowerCase() === cityName.toLowerCase()
+    normalizeCityName(h.city) === normalizedTarget
   );
 };
 const hotelChains = [
@@ -304,6 +341,57 @@ const cityHotels = {
     { chainId: 'taj-exotica', propertyName: 'Taj Exotica Resort', location: 'Radhanagar Beach', rating: 4.8 },
     { chainId: 'fortune', propertyName: 'Fortune Resort Bay Island', location: 'Marine Hill', rating: 4.0 },
     { chainId: 'oyo', propertyName: 'OYO Port Blair', location: 'Aberdeen Bazar', rating: 3.4 }
+  ],
+  // New cities - fallback entries (used when CSV has no data for these cities)
+  MYQ: [
+    { chainId: 'leela', propertyName: 'The Windflower Prakruthi Resort', location: 'Mysore Road', rating: 4.6 },
+    { chainId: 'itc', propertyName: 'Royal Orchid Metropole', location: 'Jamshedji Road', rating: 4.4, heritage: true },
+    { chainId: 'radisson', propertyName: 'Radisson Blu Mysore', location: 'JLB Road', rating: 4.2 },
+    { chainId: 'fortune', propertyName: 'Fortune JP Palace', location: 'Irwin Road', rating: 3.9 },
+    { chainId: 'ginger', propertyName: 'Ginger Mysore', location: 'Nazarbad', rating: 3.5 },
+    { chainId: 'oyo', propertyName: 'OYO Mysore', location: 'Chamundi Hills Road', rating: 3.3 },
+    { chainId: 'zostel', propertyName: 'Zostel Mysore', location: 'Gokulam', rating: 4.0 }
+  ],
+  JSA: [
+    { chainId: 'suryagarh', propertyName: 'Suryagarh Jaisalmer', location: 'Sam Road', rating: 4.9 },
+    { chainId: 'taj', propertyName: 'Gorbandh Palace', location: '1 Hotel Complex', rating: 4.7, heritage: true },
+    { chainId: 'fortune', propertyName: 'The Nachana Haveli', location: 'Goverdhan Chowk', rating: 4.5 },
+    { chainId: 'radisson', propertyName: 'Hotel Rang Mahal', location: 'Near Fort', rating: 4.1 },
+    { chainId: 'oyo', propertyName: 'OYO Jaisalmer Fort View', location: 'Bhati Colony', rating: 3.4 },
+    { chainId: 'zostel', propertyName: 'Zostel Jaisalmer', location: 'Hanuman Chowk', rating: 4.2 }
+  ],
+  CJB: [
+    { chainId: 'taj', propertyName: 'Vivanta Coimbatore', location: 'Race Course Road', rating: 4.6 },
+    { chainId: 'radisson', propertyName: 'Radisson Coimbatore', location: 'Avinashi Road', rating: 4.2 },
+    { chainId: 'marriott', propertyName: 'Courtyard by Marriott Coimbatore', location: 'Sidhapudur', rating: 4.3 },
+    { chainId: 'fortune', propertyName: 'Fortune Hotel Coimbatore', location: 'Avinashi Road', rating: 3.8 },
+    { chainId: 'ginger', propertyName: 'Ginger Coimbatore', location: 'Peelamedu', rating: 3.5 },
+    { chainId: 'oyo', propertyName: 'OYO Coimbatore', location: 'RS Puram', rating: 3.3 }
+  ],
+  GAU: [
+    { chainId: 'taj', propertyName: 'Vivanta Guwahati', location: 'GS Road', rating: 4.5 },
+    { chainId: 'radisson', propertyName: 'Radisson Blu Guwahati', location: 'Nick Lane', rating: 4.2 },
+    { chainId: 'marriott', propertyName: 'The Westin Guwahati', location: 'Khanapara', rating: 4.4 },
+    { chainId: 'fortune', propertyName: 'Dynasty Hotel', location: 'SS Road', rating: 3.8 },
+    { chainId: 'ginger', propertyName: 'Ginger Guwahati', location: 'Paltan Bazar', rating: 3.5 },
+    { chainId: 'oyo', propertyName: 'OYO Guwahati', location: 'Ambari', rating: 3.2 },
+    { chainId: 'zostel', propertyName: 'Zostel Guwahati', location: 'Uzan Bazar', rating: 4.0 }
+  ],
+  PAT: [
+    { chainId: 'taj', propertyName: 'Chanakya Hotel Patna', location: 'Beer Chand Patel Marg', rating: 4.3 },
+    { chainId: 'radisson', propertyName: 'Radisson Blu Patna', location: 'Fraser Road', rating: 4.1 },
+    { chainId: 'fortune', propertyName: 'Hotel Maurya Patna', location: 'South Gandhi Maidan', rating: 3.8 },
+    { chainId: 'ginger', propertyName: 'Ginger Patna', location: 'Boring Canal Road', rating: 3.4 },
+    { chainId: 'oyo', propertyName: 'OYO Patna', location: 'Dak Bungalow Road', rating: 3.2 }
+  ],
+  BBI: [
+    { chainId: 'taj', propertyName: 'The Crown Bhubaneswar', location: 'Jaydev Vihar', rating: 4.4 },
+    { chainId: 'radisson', propertyName: 'Mayfair Convention Bhubaneswar', location: 'JN Marg', rating: 4.5 },
+    { chainId: 'marriott', propertyName: 'Swosti Premium', location: 'Janpath', rating: 4.2 },
+    { chainId: 'fortune', propertyName: 'Fortune Select Palms', location: 'Nandankanan Road', rating: 3.9 },
+    { chainId: 'ginger', propertyName: 'Ginger Bhubaneswar', location: 'Nayapalli', rating: 3.5 },
+    { chainId: 'oyo', propertyName: 'OYO Bhubaneswar', location: 'Rasulgarh', rating: 3.2 },
+    { chainId: 'zostel', propertyName: 'Zostel Bhubaneswar', location: 'Saheed Nagar', rating: 4.0 }
   ]
 };
 

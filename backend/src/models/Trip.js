@@ -65,7 +65,7 @@ const tripSchema = new mongoose.Schema({
     order: Number
   }],
   plans: [{
-    tier: { type: String, enum: ['Budget', 'Comfort', 'Premium', 'Basic', 'Budget Saver', 'Best Value', 'Comfort Choice', 'Premium Choice'] },
+    tier: { type: String, enum: ['Budget', 'Comfort', 'Premium', 'Basic', 'Budget Saver', 'Best Value', 'Comfort Choice', 'Premium Choice', 'Premium Experience', 'Saved Plan'] },
     description: String,
     transport: mongoose.Schema.Types.Mixed,
     localTransport: mongoose.Schema.Types.Mixed,
@@ -89,8 +89,8 @@ const tripSchema = new mongoose.Schema({
   booking: {
     status: {
       type: String,
-      enum: ['draft', 'pending', 'confirmed', 'cancelled', 'completed'],
-      default: 'draft'
+      enum: ['draft', 'saved', 'pending', 'confirmed', 'cancelled', 'completed'],
+      default: 'saved'
     },
     selectedPlan: String,
     bookingId: String,

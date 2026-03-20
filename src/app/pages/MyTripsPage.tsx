@@ -2,7 +2,7 @@ import Navigation from '../components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Loader2, MapPin, Calendar, Users, IndianRupee, Trash2 } from 'lucide-react';
+import { Loader2, MapPin, Calendar, Users, IndianRupee, Trash2, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect } from 'react';
@@ -53,6 +53,29 @@ export default function MyTripsPage() {
             console.error('Error fetching trips:', error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleDeleteTrip = async (tripId: string) => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`/api/user/trips/${tripId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (response.ok) {
+                setTrips(prev => prev.filter(t => t._id !== tripId));
+                toast.success('Trip deleted successfully');
+            } else {
+                toast.error('Failed to delete trip');
+            }
+        } catch (error) {
+            console.error('Error deleting trip:', error);
+            toast.error('Failed to delete trip');
         }
     };
 
@@ -130,6 +153,25 @@ export default function MyTripsPage() {
                                     </div>
                                     <div className="text-xs text-muted-foreground">
                                         Saved on {formatDate(trip.createdAt)}
+                                    </div>
+                                    <div className="pt-2 flex justify-between items-center">
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            onClick={() => navigate(`/my-trips/${trip._id}`)}
+                                        >
+                                            <Eye className="h-4 w-4 mr-1" />
+                                            View
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() => handleDeleteTrip(trip._id)}
+                                        >
+                                            <Trash2 className="h-4 w-4 mr-1" />
+                                            Delete
+                                        </Button>
                                     </div>
                                 </CardContent>
                             </Card>
