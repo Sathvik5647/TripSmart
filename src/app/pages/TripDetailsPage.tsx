@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import MapBackground from '../components/MapBackground';
 import {
   Plane,
   Train,
@@ -28,9 +29,30 @@ import {
   Activity,
   Loader2,
   Save,
+  ShieldAlert,
+  Headphones,
+  Phone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatINR, tripsAPI, type TripPlanData } from '../../services/api';
+import { arcPath, getCoordinates, getCoordinatesByIATA } from '../../data/cityCoordinates';
+
+function isIataLike(value?: string) {
+  return !!value && /^[A-Z]{3}$/.test(value.trim());
+}
+
+function resolveCoordinates(value?: string, fallbackCity?: string): [number, number] | null {
+  if (isIataLike(value)) {
+    const byCode = getCoordinatesByIATA(value as string);
+    if (byCode) return byCode;
+  }
+  if (value) {
+    const byName = getCoordinates(value);
+    if (byName) return byName;
+  }
+  if (fallbackCity) return getCoordinates(fallbackCity);
+  return null;
+}
 
 export default function TripDetailsPage() {
   const { id } = useParams();
@@ -127,6 +149,18 @@ export default function TripDetailsPage() {
   };
 
   const itineraryDays = buildItineraryDays();
+  const outboundAny: any = plan.flight?.outbound || {};
+  const originCoords = resolveCoordinates(outboundAny.departure, formData?.origin);
+  const destinationCoords = resolveCoordinates(outboundAny.arrival, formData?.destination);
+  const routePreview = {
+    flightPaths: !isTrainTransport && originCoords && destinationCoords ? [arcPath(originCoords, destinationCoords)] : [],
+    trainPaths: isTrainTransport
+      ? (Array.isArray(outboundAny.routePath) && outboundAny.routePath.length > 1
+          ? [outboundAny.routePath as [number, number][]]
+          : (originCoords && destinationCoords ? [[originCoords, destinationCoords] as [number, number][]] : []))
+      : [],
+  };
+  const topActivities = (plan.activities?.list || []).slice(0, 4);
 
   // Helper function to get icon based on activity type
   function getActivityIcon(type: string) {
@@ -322,6 +356,27 @@ export default function TripDetailsPage() {
           </div>
         </div>
 
+        <Card className="mb-8 overflow-hidden">
+          <CardHeader>
+            <CardTitle className="text-lg">Interactive Route Map</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="relative h-72 rounded-xl overflow-hidden border bg-muted/20">
+              <MapBackground
+                origin={formData?.origin}
+                destination={formData?.destination}
+                stops={formData?.stops || []}
+                showDirectDistance
+                flightPaths={routePreview.flightPaths}
+                trainPaths={routePreview.trainPaths}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Route visualization includes selected plan transport and becomes even more informative for multi-stop itineraries.
+            </p>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2">
@@ -494,17 +549,78 @@ export default function TripDetailsPage() {
               </CardContent>
             </Card>
 
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Booking Confirmation Section</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <p className="text-muted-foreground">Confirm this plan to generate booking ID, payment receipt, and downloadable itinerary instantly.</p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate('/booking-confirmation', { state: { tripPlan: plan, formData } })}
+                >
+                  Proceed To Booking Confirmation
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Detailed Transport Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p className="font-medium">{outboundAny.airline || outboundAny.name || (isTrainTransport ? 'Train service' : 'Flight service')}</p>
+                <p className="text-muted-foreground">{outboundAny.departure || formData?.origin} at {outboundAny.departureTime || 'TBD'} → {outboundAny.arrival || formData?.destination} at {outboundAny.arrivalTime || 'TBD'}</p>
+                <p className="text-muted-foreground">Class: {outboundAny.class || 'Standard'} • Stops: {outboundAny.stops === 0 ? 'Direct' : (outboundAny.stops ?? 0)}</p>
+                {outboundAny.duration && (
+                  <p className="text-muted-foreground">Duration: {formatDuration(outboundAny.duration)}</p>
+                )}
+                <p className="font-medium text-primary">Estimated transport cost: {formatINR(plan.breakdown.transport || 0)}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Hotel And Activity Details With Ratings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div>
+                  <p className="font-medium">{plan.hotel?.name || 'Selected accommodation'}</p>
+                  <p className="text-muted-foreground">{plan.hotel?.location || formData?.destination} • {plan.hotel?.nights || 1} night(s)</p>
+                  <p className="flex items-center gap-1 text-muted-foreground">
+                    <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                    {(plan.hotel?.rating || 4.2).toFixed(1)} / 5 • {(plan.hotel?.reviews || 100).toLocaleString('en-IN')} reviews
+                  </p>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  {topActivities.length > 0 ? topActivities.map((activity) => (
+                    <div key={activity.id} className="rounded-md bg-muted/50 p-2">
+                      <p className="font-medium">{activity.name}</p>
+                      <p className="text-xs text-muted-foreground">{activity.duration} • {formatINR(activity.price)} • Rating {(activity.rating || 4.2).toFixed(1)}</p>
+                    </div>
+                  )) : (
+                    <p className="text-muted-foreground">No activities selected for this plan.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Important Notes */}
             <Card className="bg-primary/5 border-primary/20">
               <CardHeader>
-                <CardTitle className="text-base">Important Notes</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4" />
+                  Emergency Contact And Support
+                </CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-2">
-                <p>• Carry valid ID proof for all travelers</p>
-                <p>• Book activities 24 hours in advance</p>
-                <p>• Download offline maps for the destination</p>
-                <p>• Travel insurance recommended</p>
-                <p>• Check COVID/health guidelines if applicable</p>
+                <p className="flex items-center gap-2"><Headphones className="h-4 w-4" /> 24x7 TripSmart Support: +91 1800-11-TRIP</p>
+                <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> Emergency Services: 112</p>
+                <p>• Share your live location with co-travelers during intercity travel.</p>
+                <p>• Keep digital and physical copies of IDs and insurance details.</p>
+                <p>• Use in-app support for rebooking help during delays.</p>
               </CardContent>
             </Card>
           </div>

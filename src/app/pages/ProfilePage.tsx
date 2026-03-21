@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -31,8 +31,27 @@ import {
   Plane,
   Train,
   Hotel,
+  IndianRupee,
+  TrendingUp,
+  BarChart3,
 } from 'lucide-react';
 import { useTheme } from '../components/ThemeProvider';
+import { formatINR } from '../../services/api';
+
+interface UserTripHistoryItem {
+  _id: string;
+  source: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  travelers: number;
+  status: string;
+  selectedPlan?: {
+    tier?: string;
+    totalCost?: number;
+  };
+  createdAt: string;
+}
 
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -60,6 +79,8 @@ const ProfilePage: React.FC = () => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [tripHistory, setTripHistory] = useState<UserTripHistoryItem[]>([]);
+  const [isLoadingTrips, setIsLoadingTrips] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -84,6 +105,65 @@ const ProfilePage: React.FC = () => {
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    const fetchTripHistory = async () => {
+      if (!isAuthenticated) return;
+      setIsLoadingTrips(true);
+      try {
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch('/api/user/trips', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setTripHistory(Array.isArray(data.data) ? data.data : []);
+        }
+      } catch {
+        setTripHistory([]);
+      } finally {
+        setIsLoadingTrips(false);
+      }
+    };
+
+    fetchTripHistory();
+  }, [isAuthenticated]);
+
+  const tripInsights = useMemo(() => {
+    if (tripHistory.length === 0) {
+      return {
+        totalTrips: 0,
+        totalSpend: 0,
+        averageSpend: 0,
+        favoriteDestination: 'N/A',
+        upcomingTrips: 0,
+      };
+    }
+
+    const totalSpend = tripHistory.reduce((sum, trip) => sum + (trip.selectedPlan?.totalCost || 0), 0);
+    const destinationCount: Record<string, number> = {};
+    let upcomingTrips = 0;
+
+    const today = new Date();
+    tripHistory.forEach((trip) => {
+      destinationCount[trip.destination] = (destinationCount[trip.destination] || 0) + 1;
+      if (new Date(trip.startDate) > today) upcomingTrips += 1;
+    });
+
+    const favoriteDestination = Object.entries(destinationCount)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+
+    return {
+      totalTrips: tripHistory.length,
+      totalSpend,
+      averageSpend: Math.round(totalSpend / tripHistory.length),
+      favoriteDestination,
+      upcomingTrips,
+    };
+  }, [tripHistory]);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,6 +273,79 @@ const ProfilePage: React.FC = () => {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-8"
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                Trip Statistics And Insights
+              </CardTitle>
+              <CardDescription>
+                Based on your trip history and saved itineraries
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500">Total Trips</p>
+                  <p className="text-xl font-semibold">{tripInsights.totalTrips}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500">Total Spend</p>
+                  <p className="text-xl font-semibold flex items-center gap-1"><IndianRupee className="h-4 w-4" />{formatINR(tripInsights.totalSpend).replace('₹', '')}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500">Average Spend</p>
+                  <p className="text-xl font-semibold">{formatINR(tripInsights.averageSpend)}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500">Favorite Destination</p>
+                  <p className="text-xl font-semibold truncate">{tripInsights.favoriteDestination}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-gray-500">Upcoming Trips</p>
+                  <p className="text-xl font-semibold flex items-center gap-1"><TrendingUp className="h-4 w-4 text-primary" />{tripInsights.upcomingTrips}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <p className="font-medium mb-3">Recent Trip History</p>
+                {isLoadingTrips ? (
+                  <div className="py-6 flex justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  </div>
+                ) : tripHistory.length === 0 ? (
+                  <p className="text-sm text-gray-500">No trips yet. Start planning to unlock your travel insights.</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-auto pr-1">
+                    {tripHistory.slice(0, 8).map((trip) => (
+                      <div key={trip._id} className="rounded-lg border p-3 flex items-center justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-sm">{trip.source} → {trip.destination}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(trip.startDate).toLocaleDateString()} to {new Date(trip.endDate).toLocaleDateString()} • {trip.travelers} traveler(s)
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-primary">{formatINR(trip.selectedPlan?.totalCost || 0)}</p>
+                          <Badge variant="outline" className="text-xs capitalize">{trip.status || 'saved'}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Profile Header */}
@@ -587,11 +740,13 @@ const ProfilePage: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {/* Trip cards would go here */}
-                  <div className="text-center text-gray-500 py-8 col-span-full">
-                    <Plane className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                    <p>Your trip history will appear here</p>
-                  </div>
+                  {tripHistory.slice(0, 3).map((trip) => (
+                    <div key={trip._id} className="rounded-lg border p-4 space-y-2">
+                      <p className="font-medium">{trip.source} → {trip.destination}</p>
+                      <p className="text-xs text-gray-500">{new Date(trip.startDate).toLocaleDateString()} • {trip.travelers} traveler(s)</p>
+                      <p className="text-sm text-primary font-semibold">{formatINR(trip.selectedPlan?.totalCost || 0)}</p>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>

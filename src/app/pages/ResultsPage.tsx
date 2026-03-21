@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import { Button } from '../components/ui/button';
@@ -6,37 +6,76 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '../components/ui/accordion';
-import { Plane, Train, Hotel, DollarSign, Clock, Star, ArrowRight, Check, Calendar, MapPin, ChevronDown, ChevronUp, Filter, ArrowUpDown, Zap, Shield, Coffee, Globe, IndianRupee, Users, Activity, Utensils, Info } from 'lucide-react';
-import { Switch } from '../components/ui/switch';
-import { Label } from '../components/ui/label';
+import { Plane, Train, Hotel, Clock, Star, ArrowRight, Calendar, MapPin, ArrowUpDown, IndianRupee, Users, Activity, Info, Bookmark, Scale, Eye, Headphones, ShieldAlert } from 'lucide-react';
+import MapBackground from '../components/MapBackground';
 import { toast } from 'sonner';
 import { formatINR, type TripPlanData } from '../../services/api';
+import { arcPath, getCoordinates, getCoordinatesByIATA } from '../../data/cityCoordinates';
+
+function isIataLike(value?: string) {
+  return !!value && /^[A-Z]{3}$/.test(value.trim());
+}
+
+function resolveCoordinates(value?: string, fallbackCity?: string): [number, number] | null {
+  if (isIataLike(value)) {
+    const byCode = getCoordinatesByIATA(value as string);
+    if (byCode) return byCode;
+  }
+  if (value) {
+    const byCity = getCoordinates(value);
+    if (byCity) return byCity;
+  }
+  if (fallbackCity) {
+    return getCoordinates(fallbackCity);
+  }
+  return null;
+}
+
+function getPlanRoutePreview(plan: TripPlanData, formData: any) {
+  const outbound: any = plan.flight?.outbound || {};
+  const trainRoutePath = outbound.routePath as [number, number][] | undefined;
+  const isTrain =
+    plan.transport?.mode === 'train' ||
+    plan.transport?.type === 'train' ||
+    outbound?.mode === 'train' ||
+    outbound?.type === 'train';
+
+  const from = resolveCoordinates(outbound.departure, formData?.origin);
+  const to = resolveCoordinates(outbound.arrival, formData?.destination);
+
+  const flightPaths: [number, number][][] = [];
+  const trainPaths: [number, number][][] = [];
+
+  if (isTrain) {
+    if (Array.isArray(trainRoutePath) && trainRoutePath.length > 1) {
+      trainPaths.push(trainRoutePath);
+    } else if (from && to) {
+      trainPaths.push([from, to]);
+    }
+  } else if (from && to) {
+    flightPaths.push(arcPath(from, to));
+  }
+
+  return { isTrain, flightPaths, trainPaths };
+}
 
 export default function ResultsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sortBy, setSortBy] = useState('recommended');
-  const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<number | null>(null);
-  const [compareMode, setCompareMode] = useState(false);
+  const [focusedPlanId, setFocusedPlanId] = useState<number | null>(null);
+  const [shortlistedPlanIds, setShortlistedPlanIds] = useState<number[]>([]);
+  const [comparePlanIds, setComparePlanIds] = useState<number[]>([]);
 
   // Get trip plans from navigation state or use defaults
   const {
     formData,
     tripPlans: generatedPlans,
-    tripId,
-    includeActivities = true,  // NEW: Whether activities are included
-    algorithmPlans,
-    destinationAttractions,
-    arrivalInfo,  // NEW: Arrival time calculation info
-    isReturnTrip = true,  // NEW: Trip type
-    adjustedNights,  // NEW: Hotel nights adjusted for travel time
+    includeActivities = true,
+    arrivalInfo,
+    isReturnTrip = true,
+    adjustedNights,
   } = location.state || {};
 
   const tripPlans: TripPlanData[] = generatedPlans || [];
@@ -55,18 +94,51 @@ export default function ResultsPage() {
     }
   });
 
-  const handleSelectPlan = (planId: number) => {
+  const handleGenerateItinerary = (planId: number) => {
     const selectedTripPlan = tripPlans.find(p => p.id === planId);
-    setSelectedPlan(planId);
-    toast.success('Trip plan selected!');
+    if (!selectedTripPlan) return;
+    toast.success('Opening itinerary workspace...');
     setTimeout(() => {
       navigate(`/trip-details/${planId}`, { state: { tripPlan: selectedTripPlan, formData } });
-    }, 1000);
+    }, 350);
   };
 
   const toggleExpand = (id: number) => {
     setExpandedPlan(expandedPlan === id ? null : id);
   };
+
+  const toggleShortlist = (planId: number) => {
+    setShortlistedPlanIds((current) => {
+      if (current.includes(planId)) {
+        toast.info('Removed from saved plans');
+        return current.filter((id) => id !== planId);
+      }
+      toast.success('Plan saved for later');
+      return [...current, planId];
+    });
+  };
+
+  const toggleCompare = (planId: number) => {
+    setComparePlanIds((current) => {
+      if (current.includes(planId)) {
+        return current.filter((id) => id !== planId);
+      }
+      if (current.length >= 2) {
+        toast.info('You can compare up to 2 plans at once');
+        return current;
+      }
+      return [...current, planId];
+    });
+  };
+
+  const focusedPlan = useMemo(() => {
+    const fallback = sortedPlans[0]?.id ?? null;
+    const selectedId = focusedPlanId ?? fallback;
+    return sortedPlans.find((plan) => plan.id === selectedId) ?? sortedPlans[0] ?? null;
+  }, [focusedPlanId, sortedPlans]);
+
+  const comparePlans = sortedPlans.filter((p) => comparePlanIds.includes(p.id));
+  const focusedRoute = focusedPlan ? getPlanRoutePreview(focusedPlan, formData) : null;
 
   // If no plans available, show message
   if (!tripPlans || tripPlans.length === 0) {
@@ -76,9 +148,9 @@ export default function ResultsPage() {
         <main className="container mx-auto mt-8 px-4">
           <div className="flex flex-col items-center justify-center py-20">
             <h1 className="text-2xl font-bold mb-4">No Trip Plans Found</h1>
-            <p className="text-muted-foreground mb-6">Please start by planning your trip first.</p>
+            <p className="text-muted-foreground mb-6">Generate a new itinerary to see recommendations.</p>
             <Button onClick={() => navigate('/plan-trip')}>
-              Plan a Trip <ArrowRight className="ml-2 h-4 w-4" />
+              Build Itinerary <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </main>
@@ -94,9 +166,9 @@ export default function ResultsPage() {
         {/* Header & Filters */}
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Recommended Plans</h1>
+            <h1 className="text-3xl font-bold">Your Trip Options Are Ready</h1>
             <p className="text-muted-foreground">
-              AI generated plans for {formData?.origin || 'Origin'} → {formData?.destination || 'Destination'}
+              Compare, save, and deep-dive into routes for {formData?.origin || 'Origin'} → {formData?.destination || 'Destination'}
               {formData?.travelers && ` • ${formData.travelers} traveler${formData.travelers > 1 ? 's' : ''}`}
             </p>
           </div>
@@ -107,7 +179,7 @@ export default function ResultsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="recommended">Recommended</SelectItem>
+                <SelectItem value="recommended">Best Match</SelectItem>
                 <SelectItem value="price-low">Price: Low to High</SelectItem>
                 <SelectItem value="price-high">Price: High to Low</SelectItem>
                 <SelectItem value="rating">Highest Rated</SelectItem>
@@ -116,7 +188,7 @@ export default function ResultsPage() {
           </div>
         </div>
 
-        {/* Trip Summary Card - Shows total amount prominently */}
+        {/* Trip Summary */}
         {tripPlans.length > 0 && (
           <Card className="mb-6 bg-gradient-to-r from-primary/5 via-cyan-500/5 to-primary/5 border-primary/20">
             <CardContent className="p-4">
@@ -153,7 +225,7 @@ export default function ResultsPage() {
                   </div>
                 </div>
                 <div className="text-right border-l pl-4 md:border-l-0 md:pl-0">
-                  <p className="text-sm text-muted-foreground">Plans from</p>
+                  <p className="text-sm text-muted-foreground">Starting at</p>
                   <p className="text-2xl font-bold text-primary flex items-center justify-end gap-1">
                     <IndianRupee className="h-5 w-5" />
                     {formatINR(Math.min(...tripPlans.map(p => p.price))).replace('₹', '')}
@@ -164,6 +236,46 @@ export default function ResultsPage() {
                     </p>
                   )}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {focusedPlan && focusedRoute && (
+          <Card className="mb-6 overflow-hidden">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle className="text-lg">Interactive Route Map</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Showing route for {focusedPlan.name}. This view becomes more useful when you add multiple stops.
+                  </p>
+                </div>
+                <Badge variant="outline">Focused plan: {focusedPlan.badge}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative h-72 rounded-xl overflow-hidden border bg-muted/20">
+                <MapBackground
+                  origin={formData?.origin}
+                  destination={formData?.destination}
+                  stops={formData?.stops || []}
+                  showDirectDistance
+                  flightPaths={focusedRoute.flightPaths}
+                  trainPaths={focusedRoute.trainPaths}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Map legend</span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-0.5 w-6 rounded bg-sky-400" /> Flight path
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-0.5 w-6 rounded bg-orange-400" style={{ borderTop: '2px dashed' }} /> Train path
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-0.5 w-6 rounded bg-blue-500" style={{ borderTop: '2px dashed' }} /> Through stops
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -182,10 +294,34 @@ export default function ResultsPage() {
           </div>
         )}
 
+        {comparePlans.length === 2 && (
+          <Card className="mb-6 border-primary/30">
+            <CardHeader>
+              <CardTitle className="text-lg">Quick Compare</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              {comparePlans.map((plan) => (
+                <div key={plan.id} className="rounded-lg border p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold">{plan.name}</p>
+                    <Badge variant="secondary">{plan.badge}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{formatINR(plan.price)} total • {plan.rating.toFixed(1)} rating</p>
+                  <p className="text-xs text-muted-foreground">
+                    Transport: {formatINR(plan.breakdown.transport)} • Stay: {formatINR(plan.breakdown.accommodation)}
+                  </p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Trip Plans */}
         <div className="space-y-6">
           {sortedPlans.map((plan) => {
             const isExpanded = expandedPlan === plan.id;
+            const isShortlisted = shortlistedPlanIds.includes(plan.id);
+            const isCompared = comparePlanIds.includes(plan.id);
             const badgeColors: Record<number, string> = {
               1: "bg-green-500",
               2: "bg-primary",
@@ -392,7 +528,7 @@ export default function ResultsPage() {
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <Activity className="h-4 w-4 text-primary" />
-                            <span className="font-medium">Sample Activities</span>
+                            <span className="font-medium">Hotel And Activity Details</span>
                             <span className="text-sm text-muted-foreground ml-auto">{formatINR(plan.activities?.totalPrice ?? 0)}</span>
                           </div>
                           <div className="grid gap-2 md:grid-cols-3">
@@ -403,8 +539,23 @@ export default function ResultsPage() {
                                   <span>{activity.duration}</span>
                                   <span>{formatINR(activity.price)}</span>
                                 </div>
+                                <div className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
+                                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                  {activity.rating?.toFixed?.(1) || '4.2'} • {activity.reviews || 120} reviews
+                                </div>
                               </div>
                             ))}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="rounded-lg border bg-muted/40 p-3">
+                            <p className="font-medium mb-1 flex items-center gap-2"><ArrowRight className="h-4 w-4 text-primary" /> Booking Confirmation Section</p>
+                            <p className="text-sm text-muted-foreground">Once you confirm this plan, your itinerary, payment receipt, and booking ID will be generated instantly.</p>
+                          </div>
+                          <div className="rounded-lg border bg-muted/40 p-3">
+                            <p className="font-medium mb-1 flex items-center gap-2"><Headphones className="h-4 w-4 text-primary" /> Emergency Contact And Support</p>
+                            <p className="text-sm text-muted-foreground">24x7 support: +91 1800-11-TRIP • Emergency: +91 112 • In-app live assistance available.</p>
                           </div>
                         </div>
                       </div>
@@ -412,36 +563,52 @@ export default function ResultsPage() {
                   </div>
                 </CardContent>
 
-                <div className="px-6 pb-6 flex items-center justify-between">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleExpand(plan.id)}
-                    className="text-sm"
-                  >
-                    {isExpanded ? (
-                      <>
-                        <ChevronUp className="mr-2 h-4 w-4" />
-                        Show Less
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="mr-2 h-4 w-4" />
-                        Show Details
-                      </>
-                    )}
+                <div className="px-6 pb-6 grid gap-2 md:grid-cols-4">
+                  <Button variant={isShortlisted ? 'default' : 'outline'} size="sm" onClick={() => toggleShortlist(plan.id)}>
+                    <Bookmark className="mr-2 h-4 w-4" />
+                    {isShortlisted ? 'Saved' : 'Save'}
                   </Button>
-                  <Button
-                    onClick={() => handleSelectPlan(plan.id)}
-                    className="bg-gradient-to-r from-primary to-cyan-600 hover:brightness-110"
-                  >
-                    Select Plan
+                  <Button variant={isCompared ? 'default' : 'outline'} size="sm" onClick={() => toggleCompare(plan.id)}>
+                    <Scale className="mr-2 h-4 w-4" />
+                    {isCompared ? 'Comparing' : 'Compare'}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { toggleExpand(plan.id); setFocusedPlanId(plan.id); }}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                  </Button>
+                  <Button onClick={() => handleGenerateItinerary(plan.id)} className="bg-gradient-to-r from-primary to-cyan-600 hover:brightness-110" size="sm">
+                    Generate Itinerary
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
               </Card>
             );
           })}
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Booking Confirmation Section</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              <p>You will receive instant confirmation with booking ID, payment receipt, and downloadable itinerary after finalizing any plan.</p>
+              <p>Cancellation: free up to 24 hours before departure in most cases.</p>
+            </CardContent>
+          </Card>
+          <Card className="border-orange-200 dark:border-orange-800">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4" />
+                Emergency Contact And Support
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p className="text-muted-foreground">TripSmart Support: +91 1800-11-TRIP</p>
+              <p className="text-muted-foreground">Medical Emergency: +91 108</p>
+              <p className="text-muted-foreground">National Helpline: +91 112</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Budget Summary Card */}
@@ -451,11 +618,11 @@ export default function ResultsPage() {
               <div>
                 <h3 className="font-semibold">Your Budget</h3>
                 <p className="text-sm text-muted-foreground">
-                  You set a budget of {formatINR(formData?.budget || 25000)} per person
+                  Budget target set to {formatINR(formData?.budget || 25000)} per person
                 </p>
               </div>
               <Button variant="outline" onClick={() => navigate('/plan-trip', { state: { formData } })}>
-                Modify Preferences
+                Edit Trip Inputs
               </Button>
             </div>
           </CardContent>

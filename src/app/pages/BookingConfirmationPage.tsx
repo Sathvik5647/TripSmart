@@ -20,6 +20,13 @@ import {
   ArrowRight,
   IndianRupee,
   MapPin,
+  Plane,
+  Train,
+  Hotel,
+  Star,
+  Activity,
+  ShieldAlert,
+  Headphones,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
@@ -34,6 +41,12 @@ export default function BookingConfirmationPage() {
   // Get trip plan from navigation state
   const { tripPlan, formData } = location.state || {};
   const plan: TripPlanData | null = tripPlan;
+  const isTrainTransport =
+    plan?.transport?.mode === 'train' ||
+    plan?.transport?.type === 'train' ||
+    plan?.flight?.outbound?.mode === 'train' ||
+    plan?.flight?.outbound?.type === 'train';
+  const TransportIcon = isTrainTransport ? Train : Plane;
 
   const bookingSummary = plan ? {
     tripName: `${formData?.destination || 'Trip'} - ${plan.name}`,
@@ -141,6 +154,34 @@ export default function BookingConfirmationPage() {
                       We've sent your booking confirmation and itinerary to your email address. Check your inbox!
                     </p>
                   </div>
+
+                  {plan && (
+                    <div className="grid gap-4 md:grid-cols-2 text-left">
+                      <div className="rounded-lg border p-4">
+                        <p className="font-semibold mb-2 flex items-center gap-2">
+                          <TransportIcon className="h-4 w-4 text-primary" />
+                          Detailed Transport Information
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {plan.flight?.outbound?.airline || plan.flight?.outbound?.name || (isTrainTransport ? 'Train service' : 'Flight service')}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {plan.flight?.outbound?.departure || bookingSummary.origin || 'Origin'} ({plan.flight?.outbound?.departureTime || 'TBD'})
+                          {' '}→{' '}
+                          {plan.flight?.outbound?.arrival || bookingSummary.destination} ({plan.flight?.outbound?.arrivalTime || 'TBD'})
+                        </p>
+                      </div>
+                      <div className="rounded-lg border p-4">
+                        <p className="font-semibold mb-2 flex items-center gap-2">
+                          <Headphones className="h-4 w-4 text-primary" />
+                          Emergency Contact And Support
+                        </p>
+                        <p className="text-sm text-muted-foreground">TripSmart Support: +91 1800-11-TRIP</p>
+                        <p className="text-sm text-muted-foreground">Emergency Helpline: 112</p>
+                        <p className="text-sm text-muted-foreground">Medical Helpline: 108</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -357,6 +398,36 @@ export default function BookingConfirmationPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {plan && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Hotel className="h-4 w-4" />
+                      Hotel And Activity Details With Ratings
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm">
+                    <div className="rounded-lg border p-3">
+                      <p className="font-medium">{plan.hotel?.name || 'Selected hotel'}</p>
+                      <p className="text-muted-foreground">{plan.hotel?.location || bookingSummary.destination} • {plan.hotel?.nights || 1} nights</p>
+                      <p className="text-muted-foreground flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                        {(plan.hotel?.rating || 4.2).toFixed(1)} / 5 • {(plan.hotel?.reviews || 100).toLocaleString('en-IN')} reviews
+                      </p>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {(plan.activities?.list || []).slice(0, 4).map((activity) => (
+                        <div key={activity.id} className="rounded-lg border p-2">
+                          <p className="font-medium truncate">{activity.name}</p>
+                          <p className="text-xs text-muted-foreground">{activity.duration} • {formatINR(activity.price)}</p>
+                          <p className="text-xs text-muted-foreground">Rating {(activity.rating || 4.2).toFixed(1)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Sidebar - Booking Summary */}
@@ -418,6 +489,18 @@ export default function BookingConfirmationPage() {
                     <p className="font-medium text-green-600 dark:text-green-400 mb-1">✓ Free Cancellation</p>
                     <p className="text-green-700 dark:text-green-500 text-xs">Cancel up to 24 hours before for full refund</p>
                   </div>
+
+                  {plan && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm space-y-2">
+                      <p className="font-medium flex items-center gap-2">
+                        <ShieldAlert className="h-4 w-4 text-primary" />
+                        Support Snapshot
+                      </p>
+                      <p className="text-muted-foreground">Transport mode: {isTrainTransport ? 'Train' : 'Flight'}</p>
+                      <p className="text-muted-foreground">Hotel rating: {(plan.hotel?.rating || 4.2).toFixed(1)} / 5</p>
+                      <p className="text-muted-foreground">Activities selected: {plan.activities?.list?.length || 0}</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
