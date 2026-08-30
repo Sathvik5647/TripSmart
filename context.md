@@ -8,6 +8,7 @@
 
 | Date | Change |
 |------|--------|
+| 2026-08-24 | **Nav bar:** Centered via full-width flex wrapper (fixes Framer Motion `transform` override). Nav labels/logo use Playfair Display (`--font-serif`) to match hero/destination place names. |
 | 2026-08-22 | **Multi-day transit itinerary:** `generateItinerary()` + `buildItineraryDays()` now use `totalDays = overnightCount + usableDays`. One "In Transit" tab per overnight leg (no collapse). `plan.duration` = `"${overnightCount + usableDays} days"`. |
 | 2026-08-22 | **Overnight day count fix:** Backend breakdown stores `overnightCount`, `usableDays`, `nightsAtDestination`. Frontend validates per-plan itinerary length. |
 | 2026-08-22 | **Light mode fix:** `.plan-trip-panel` CSS overrides for PlanTripPage white text. |

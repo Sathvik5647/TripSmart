@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import { Button } from '../components/ui/button';
@@ -67,6 +67,11 @@ export default function ResultsPage() {
   const [shortlistedPlanIds, setShortlistedPlanIds] = useState<number[]>([]);
   const [comparePlanIds, setComparePlanIds] = useState<number[]>([]);
   const [rightPanelMode, setRightPanelMode] = useState<'details' | 'compare' | null>(null);
+  
+  // Recommendation state
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
 
   // Get trip plans from navigation state or use defaults
   const {
@@ -139,6 +144,27 @@ export default function ResultsPage() {
       return [...current, planId];
     });
   };
+
+  // Fetch recommendations based on the top plan
+  useEffect(() => {
+    if (tripPlans.length > 0) {
+      setLoadingRecommendations(true);
+      fetch('/api/trips/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPlan: sortedPlans[0] })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setRecommendations(data.data);
+        }
+      })
+      .catch(err => console.error('Error fetching recommendations:', err))
+      .finally(() => setLoadingRecommendations(false));
+    }
+  }, []);
+
 
   const focusedPlan = useMemo(() => {
     if (focusedPlanId == null) return null;
@@ -522,7 +548,73 @@ export default function ResultsPage() {
           </div>
         </div>
 
-
+        {/* AI Recommendations Section */}
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold mb-2">Alternative Trips You Might Like</h2>
+          <p className="text-muted-foreground mb-6">Based on your budget and duration preferences</p>
+          
+          {loadingRecommendations ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : recommendations.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-3">
+              {recommendations.map((rec) => (
+                <Card key={rec._id || rec.destination} className="flex flex-col h-full hover:shadow-lg transition-shadow border-primary/20">
+                  <CardHeader className="pb-3 bg-gradient-to-br from-primary/5 to-transparent">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg">{rec.destination}</CardTitle>
+                      <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
+                        {rec.matchPercentage}% Match
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mt-2 h-10">
+                      {rec.similarBecause}
+                    </p>
+                  </CardHeader>
+                  <CardContent className="pt-4 flex-1 flex flex-col">
+                    <div className="space-y-2 text-sm mb-4 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground flex items-center gap-2"><Clock className="h-4 w-4"/> Duration</span>
+                        <span className="font-medium">{rec.durationDays} days</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground flex items-center gap-2"><IndianRupee className="h-4 w-4"/> Budget</span>
+                        <span className="font-medium">{formatINR(rec.totalCost)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground flex items-center gap-2"><Plane className="h-4 w-4"/> Transport</span>
+                        <span className="font-medium capitalize">{rec.transportMode}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {(rec.highlights || []).slice(0, 3).map((h: string, i: number) => (
+                        <span key={i} className="text-xs bg-muted px-2 py-1 rounded-full text-muted-foreground truncate max-w-full">
+                          {h}
+                        </span>
+                      ))}
+                    </div>
+                    
+                    <Button 
+                      className="w-full mt-auto" 
+                      variant="outline"
+                      onClick={() => navigate('/plan-trip', { state: { formData: { ...formData, destination: rec.destination } } })}
+                    >
+                      Plan Trip Here
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="bg-muted/30 border-dashed">
+              <CardContent className="py-10 text-center text-muted-foreground">
+                No matching alternatives found for your specific criteria.
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <Card>

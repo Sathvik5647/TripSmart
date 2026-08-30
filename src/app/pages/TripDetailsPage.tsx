@@ -28,13 +28,16 @@ import {
   IndianRupee,
   Activity,
   Loader2,
-  Save,
+  CreditCard,
   ShieldAlert,
   Headphones,
   Phone,
+  Save,
+  Bookmark,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatINR, tripsAPI, type TripPlanData } from '../../services/api';
+import { printItinerary } from '../../utils/itineraryExport';
 import { arcPath, getCoordinates, getCoordinatesByIATA } from '../../data/cityCoordinates';
 
 function isIataLike(value?: string) {
@@ -60,7 +63,7 @@ export default function TripDetailsPage() {
   const location = useLocation();
   const { isAuthenticated } = useAuth();
   const [activeDay, setActiveDay] = useState(1);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   // Get trip plan from navigation state
   const { tripPlan, formData, arrivalInfo } = location.state || {};
@@ -298,109 +301,74 @@ export default function TripDetailsPage() {
   };
 
   const handleDownload = () => {
-    const lines: string[] = [];
-    lines.push('TRIP ITINERARY');
-    lines.push('='.repeat(60));
-    lines.push(`Plan: ${plan.name} (${plan.badge})`);
-    lines.push(`Route: ${formData?.origin || 'Origin'} → ${formData?.destination || 'Destination'}`);
-    lines.push(`Duration: ${plan.duration}`);
-    lines.push(`Travelers: ${formData?.travelers || 1}`);
-    lines.push(`Total Cost: ₹${plan.price.toLocaleString('en-IN')}`);
-    lines.push('');
-    lines.push('COST BREAKDOWN');
-    lines.push('-'.repeat(40));
-    lines.push(`  Transport:      ₹${plan.breakdown.transport.toLocaleString('en-IN')}`);
-    lines.push(`  Accommodation:  ₹${plan.breakdown.accommodation.toLocaleString('en-IN')}`);
-    lines.push(`  Activities:     ₹${plan.breakdown.activities.toLocaleString('en-IN')}`);
-    lines.push(`  Meals:          ₹${plan.breakdown.meals.toLocaleString('en-IN')}`);
-    lines.push(`  Miscellaneous:  ₹${plan.breakdown.misc.toLocaleString('en-IN')}`);
-    lines.push('');
-
-    if (plan.hotel?.name) {
-      lines.push('ACCOMMODATION');
-      lines.push('-'.repeat(40));
-      lines.push(`  Hotel: ${plan.hotel.name} (${plan.hotel.stars || 3}★)`);
-      lines.push(`  Location: ${plan.hotel.location || ''}`);
-      lines.push(`  Nights: ${plan.hotel.nights || 1}`);
-      lines.push(`  Total: ₹${plan.hotel.totalPrice?.toLocaleString('en-IN') || 0}`);
-      lines.push('');
-    }
-
-    if (plan.flight?.outbound) {
-      lines.push('TRANSPORT');
-      lines.push('-'.repeat(40));
-      lines.push(`  Mode: ${isTrainTransport ? 'Train' : 'Flight'}`);
-      lines.push(`  Operator: ${plan.flight.outbound.airline || plan.flight.outbound.name || 'N/A'}`);
-      lines.push(`  Departure: ${plan.flight.outbound.departureTime || 'N/A'}`);
-      lines.push(`  Arrival: ${plan.flight.outbound.arrivalTime || 'N/A'}`);
-      lines.push(`  Duration: ${formatDuration(plan.flight.outbound.duration)}`);
-      lines.push(`  Class: ${plan.flight.outbound.class || 'Standard'}`);
-      lines.push('');
-    }
-
-    lines.push('DAY-BY-DAY ITINERARY');
-    lines.push('='.repeat(60));
-
-    itineraryDays.forEach((day) => {
-      lines.push('');
-      lines.push(`Day ${day.day}: ${day.title}${day.date ? ` (${day.date})` : ''}`);
-      lines.push('-'.repeat(40));
-      day.activities.forEach((activity: any) => {
-        const cost = activity.cost != null ? ` — ₹${Number(activity.cost).toLocaleString('en-IN')}` : '';
-        lines.push(`  ${activity.time ? `[${activity.time}] ` : ''}${activity.title}${cost}`);
-        if (activity.description) lines.push(`         ${activity.description}`);
-        if (activity.duration) lines.push(`         Duration: ${activity.duration}`);
-      });
+    printItinerary({
+      title: `${plan.name} (${plan.badge})`,
+      origin: formData?.origin || 'Origin',
+      destination: formData?.destination || 'Destination',
+      dates: `${formData?.departureDate || ''} – ${formData?.returnDate || ''}`,
+      duration: plan.duration,
+      travelers: formData?.travelers || 1,
+      totalCost: formatINR(plan.price),
+      breakdown: [
+        { label: 'Transport', amount: formatINR(plan.breakdown.transport) },
+        { label: 'Accommodation', amount: formatINR(plan.breakdown.accommodation) },
+        { label: 'Activities', amount: formatINR(plan.breakdown.activities) },
+        { label: 'Meals', amount: formatINR(plan.breakdown.meals) },
+        { label: 'Miscellaneous', amount: formatINR(plan.breakdown.misc) },
+      ],
+      hotel: plan.hotel,
+      transport: {
+        mode: isTrainTransport ? 'Train' : 'Flight',
+        operator: plan.flight?.outbound?.airline || plan.flight?.outbound?.name,
+        departure: plan.flight?.outbound?.departureTime,
+        arrival: plan.flight?.outbound?.arrivalTime,
+        class: plan.flight?.outbound?.class,
+      },
+      days: itineraryDays.map((day) => ({
+        day: day.day,
+        title: day.title,
+        date: day.date,
+        activities: day.activities.map((activity: any) => ({
+          time: activity.time,
+          title: activity.title,
+          description: activity.description,
+          cost: activity.cost != null ? formatINR(activity.cost) : '',
+        })),
+      })),
     });
-
-    lines.push('');
-    lines.push('='.repeat(60));
-    lines.push('Generated by TripSmart — Your AI Travel Planner');
-
-    const content = lines.join('\n');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `TripSmart_${formData?.destination || 'Trip'}_Itinerary.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success('Itinerary downloaded!');
+    toast.success('Opening printable itinerary — save as PDF from the print dialog');
   };
 
   const handleEdit = () => {
     toast.info('Customization feature coming soon!');
   };
 
-  const handleBookTrip = async () => {
-    // Check if user is logged in
+  const handleSaveTrip = async () => {
     if (!isAuthenticated) {
       toast.error('Please login to save this trip');
       navigate('/login', { state: { from: location.pathname, tripPlan: plan, formData } });
       return;
     }
 
-    setIsSaving(true);
+    setIsSavingDraft(true);
     try {
-      const response = await tripsAPI.saveTrip({
-        plan,
-        formData,
-      });
-
+      await tripsAPI.saveTrip({ plan, formData });
       toast.success('Trip saved to your account!');
-
-      // Navigate to my-trips to see saved trips
-      setTimeout(() => {
-        navigate('/my-trips');
-      }, 1000);
     } catch (error: any) {
       console.error('Error saving trip:', error);
       toast.error(error.message || 'Failed to save trip. Please try again.');
     } finally {
-      setIsSaving(false);
+      setIsSavingDraft(false);
     }
+  };
+
+  const handleBookNow = () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to book this trip');
+      navigate('/login', { state: { from: location.pathname, tripPlan: plan, formData } });
+      return;
+    }
+    navigate('/booking-confirmation', { state: { tripPlan: plan, formData } });
   };
 
   return (
@@ -586,19 +554,36 @@ export default function TripDetailsPage() {
                   <span className="text-primary">{formatINR(plan.price)}</span>
                 </div>
 
+                {/* Primary: Book This Trip */}
                 <Button
-                  onClick={handleBookTrip}
-                  disabled={isSaving}
-                  className="w-full bg-gradient-to-r from-primary to-cyan-600 mt-4"
+                  onClick={handleBookNow}
+                  className="w-full mt-4 font-semibold text-base"
+                  style={{
+                    background: 'linear-gradient(135deg, #C85F3C 0%, #e07d5a 100%)',
+                    color: '#fff',
+                    boxShadow: '0 4px 14px rgba(200, 95, 60, 0.35)',
+                  }}
+                  size="lg"
                 >
-                  {isSaving ? (
+                  <CreditCard className="mr-2 h-5 w-5" />
+                  Book This Trip
+                </Button>
+
+                {/* Secondary: Save as Draft */}
+                <Button
+                  variant="outline"
+                  onClick={handleSaveTrip}
+                  disabled={isSavingDraft}
+                  className="w-full mt-2"
+                >
+                  {isSavingDraft ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Save className="mr-2 h-4 w-4" />
+                      <Bookmark className="mr-2 h-4 w-4" />
                       Save Trip
                     </>
                   )}
@@ -654,17 +639,28 @@ export default function TripDetailsPage() {
 
             <Card className="bg-background/90 backdrop-blur-md">
               <CardHeader>
-                <CardTitle className="text-base">Booking Confirmation Section</CardTitle>
+                <CardTitle className="text-base">Ready to Book?</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <p className="text-muted-foreground">Confirm this plan to generate booking ID, payment receipt, and downloadable itinerary instantly.</p>
+                <p className="text-muted-foreground">Lock in this plan to get your booking ID, payment receipt, and a downloadable itinerary instantly.</p>
                 <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleBookTrip}
-                  disabled={isSaving}
+                  className="w-full font-semibold"
+                  style={{
+                    background: 'linear-gradient(135deg, #C85F3C 0%, #e07d5a 100%)',
+                    color: '#fff',
+                  }}
+                  onClick={handleBookNow}
                 >
-                  {isSaving ? 'Saving...' : 'Save And Confirm Plan'}
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Book This Trip
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full text-xs text-muted-foreground"
+                  onClick={handleSaveTrip}
+                  disabled={isSavingDraft}
+                >
+                  {isSavingDraft ? 'Saving...' : 'Save as Draft Instead'}
                 </Button>
               </CardContent>
             </Card>

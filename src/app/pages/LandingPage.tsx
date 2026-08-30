@@ -629,7 +629,7 @@ export default function LandingPage() {
             <ul className="space-y-2">
               {[
                 { label: 'Plan a trip', href: '/plan-trip' },
-                { label: 'My trips', href: '/my-trips' },
+                { label: 'Saved trips', href: '/saved-trips' },
                 { label: 'About', href: '/about' },
               ].map(link => (
                 <li key={link.href}>

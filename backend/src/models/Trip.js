@@ -177,7 +177,8 @@ const tripSchema = new mongoose.Schema({
     transportBooked: { type: Boolean, default: false },
     hotelBooked: { type: Boolean, default: false },
     transportBookingRef: String,
-    hotelBookingRef: String
+    hotelBookingRef: String,
+    tickets: mongoose.Schema.Types.Mixed
   }
 }, {
   timestamps: true

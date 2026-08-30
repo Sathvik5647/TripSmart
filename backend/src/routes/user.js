@@ -31,6 +31,8 @@ router.get('/trips', authMiddleware, async (req, res) => {
                 totalCost: trip.plans?.[0]?.costs?.total || trip.booking?.totalAmount || 0
             },
             status: trip.booking?.status || 'saved',
+            bookingId: trip.booking?.bookingId || null,
+            tickets: trip.booking?.tickets || null,
             createdAt: trip.createdAt
         }));
 

@@ -115,11 +115,11 @@ export default function SavedTripDetailPage() {
         setTrip(data.data);
       } else {
         toast.error('Trip not found');
-        navigate('/my-trips');
+        navigate('/saved-trips');
       }
     } catch {
       toast.error('Failed to load trip');
-      navigate('/my-trips');
+      navigate('/saved-trips');
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +136,7 @@ export default function SavedTripDetailPage() {
       });
       if (res.ok) {
         toast.success('Trip deleted');
-        navigate('/my-trips');
+        navigate('/saved-trips');
       } else {
         toast.error('Failed to delete trip');
       }
@@ -275,9 +275,9 @@ export default function SavedTripDetailPage() {
 
       <div className="container mx-auto px-4 py-8">
         {/* Back */}
-        <Button variant="ghost" className="mb-4 -ml-2" onClick={() => navigate('/my-trips')}>
+        <Button variant="ghost" className="mb-4 -ml-2" onClick={() => navigate('/saved-trips')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to My Trips
+          Back to Saved Trips
         </Button>
 
         {/* Header */}

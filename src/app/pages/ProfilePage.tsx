@@ -318,7 +318,12 @@ const ProfilePage: React.FC = () => {
               <Separator />
 
               <div>
-                <p className="font-medium mb-3">Recent Trip History</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-medium">My Trips Overview</p>
+                  <Button variant="link" size="sm" onClick={() => navigate('/my-trips')} className="h-auto p-0">
+                    View All
+                  </Button>
+                </div>
                 {isLoadingTrips ? (
                   <div className="py-6 flex justify-center">
                     <Loader2 className="h-5 w-5 animate-spin text-primary" />
