@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Plan Trip', href: '/plan-trip' },
+  { label: 'Dashboard', href: '/dashboard' },
   { label: 'Saved Trips', href: '/saved-trips' },
   { label: 'About', href: '/about' },
 ];
@@ -202,6 +203,7 @@ export default function Navigation() {
                       <p style={{ fontSize: '0.75rem', color: 'rgba(209,242,235,0.5)', margin: 0, marginTop: 1 }}>{user?.email}</p>
                     </div>
                     {[
+                      { label: 'Dashboard', href: '/dashboard' },
                       { label: 'Profile', href: '/profile' },
                       { label: 'My Trips', href: '/my-trips' },
                       { label: 'Settings', href: '/settings' },

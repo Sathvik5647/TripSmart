@@ -13,6 +13,7 @@ import TicketPage from './pages/TicketPage';
 import SettingsPage from './pages/SettingsPage';
 import AboutPage from './pages/AboutPage';
 import GroupTripInfoPage from './pages/GroupTripInfoPage';
+import DashboardPage from './pages/DashboardPage';
 import { Toaster } from './components/ui/sonner';
 import { ThemeProvider } from './components/ThemeProvider';
 
@@ -74,6 +75,7 @@ function AppRoutes() {
       <Route path="/my-trips/:id" element={<Navigate to="/saved-trips" replace />} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/about" element={<AboutPage />} />
+      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
     </Routes>
   );
 }
